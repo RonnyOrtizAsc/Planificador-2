@@ -20,6 +20,46 @@
 </head>
 
 <body>
+
+<div id="projectGate" class="project-gate">
+  <div class="project-gate-card">
+    <div class="project-gate-brand">
+      <div class="project-gate-mark">PO</div>
+      <div><strong>Planificador de obra</strong><span>Proyecto</span></div>
+    </div>
+
+    <div id="projectHome" class="project-home">
+      <div class="project-gate-kicker">INICIO</div>
+      <h1>¿Qué proyecto vas a planificar?</h1>
+      <p>Los proyectos se guardan en Google Sheets para que puedas continuar desde cualquier computadora.</p>
+      <div class="project-choice-grid">
+        <button type="button" id="newProjectBtn" class="project-choice primary"><b>＋</b><strong>Nuevo proyecto</strong><span>Crear un proyecto desde cero.</span></button>
+        <button type="button" id="continueProjectBtn" class="project-choice"><b>↻</b><strong>Continuar proyecto</strong><span>Abrir uno que ya existe.</span></button>
+      </div>
+    </div>
+
+    <div id="projectForm" class="project-form" hidden>
+      <button type="button" id="backProjectHome" class="project-back">← Volver</button>
+      <div class="project-gate-kicker">NUEVO PROYECTO</div>
+      <h1>Define el proyecto</h1>
+      <div class="project-fields">
+        <label>Nombre<input id="projectName" type="text" placeholder="Ej. Grupo Q · Santa Elena"></label>
+        <label>Ubicación<input id="projectLocation" type="text" placeholder="Ej. Santa Elena, San Salvador"></label>
+        <label>Tipo<select id="projectType"><option value="Construcción">Construcción</option><option value="Remodelación">Remodelación</option><option value="Obra civil">Obra civil</option><option value="Otro">Otro</option></select></label>
+        <label>Inicio<input id="projectStart" type="date" value="2026-10-16"></label>
+        <label>Fin<input id="projectEnd" type="date"></label>
+      </div>
+      <button type="button" id="createProjectBtn" class="project-submit">Crear y entrar al proyecto →</button>
+    </div>
+
+    <div id="projectList" class="project-list" hidden>
+      <button type="button" id="backProjectList" class="project-back">← Volver</button>
+      <div class="project-gate-kicker">PROYECTOS GUARDADOS</div>
+      <h1>Continuar proyecto</h1>
+      <div id="savedProjects"></div>
+    </div>
+  </div>
+</div>
   
 <div class="app-shell">
 
@@ -353,6 +393,22 @@
 
             </label>
 
+
+
+            <!-- TURNO -->
+
+            <label class="field">
+
+              <span>
+                Turno
+              </span>
+
+              <select id="plannerShift">
+                <option value="Diurno">☀️ Diurno · 09:00–17:00</option>
+                <option value="Nocturno">🌙 Nocturno · 17:00–24:00</option>
+              </select>
+
+            </label>
 
 
             <!-- ASIGNAR -->
@@ -794,8 +850,6 @@
           </div>
 
         </section>
-
-
         <!-- ==================================================
              CONTENEDOR PARA LA CALCULADORA ACTUAL
              NO MODIFICAR TODAVÍA
@@ -842,12 +896,7 @@
         </section>
 
       </section>
-
-
     </main>
-
-
-
     <!-- ==================================================
          FOOTER
     =================================================== -->
