@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const CONFIG = {
 
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbziPW4SVVQ6qfKBO9BHtfZx2X4YThcD-OAot6cZQd78N8WSf4R1khkhjk4iJd59tDYX/exec",
+    "https://script.google.com/macros/s/AKfycbyptfYef7_HQK6yc2m79L7VOuH7bI0_-pydhOoEGMuFv8yrrxTiVpMDU7t86flpmnbB/exec",
 
 };
 
