@@ -245,25 +245,14 @@ function unitsCompatible(
   );
 
 }
-
-
 function resourceWord() {
-
-  return state.mode === "team"
-    ? "equipos"
-    : "personas";
-
+  return "personas";
 }
 
 
 function resourceSingular() {
-
-  return state.mode === "team"
-    ? "equipo"
-    : "persona";
-
+  return "persona";
 }
-
 
 function escapeHtml(
   value = ""
@@ -298,58 +287,15 @@ function escapeHtml(
    MODO DE TRABAJO
 ========================================================= */
 
-function setMode(
-  mode
-) {
-
-  state.mode =
-    mode;
-
-
-  $("individualBtn")
-    .classList
-    .toggle(
-      "selected",
-      mode === "individual"
-    );
-
-
-  $("teamBtn")
-    .classList
-    .toggle(
-      "selected",
-      mode === "team"
-    );
-
-
-  $("peoplePerTeamWrap")
-    .hidden =
-      mode !== "team";
-
-
-  updateYieldLabel();
-
-  calculate();
-
-}
-
-
 function updateYieldLabel() {
 
-  $("yieldSuffix")
-    .textContent =
-      `${unit()} / persona / día`;
+  $("yieldSuffix").textContent =
+    `${unit()} / persona / día`;
 
-  $("resourceLabel")
-    .textContent =
-      resourceWord();
-
-  $("resourceLabel2")
-    .textContent =
-      resourceWord();
+  $("resourceLabel").textContent =
+    "personas";
 
 }
-
 
 function updateQuantityStep() {
 
@@ -1374,35 +1320,6 @@ function calculate() {
       )
     );
 
-
-  /*
-   * PERSONAS POR EQUIPO
-   */
-
-  const peoplePerTeam =
-    Math.max(
-      1,
-
-      n(
-        "peoplePerTeam",
-        1
-      )
-    );
-
-
-  /*
-   * CONVERSIÓN A PERSONAS REALES
-   */
-
-  const activePeople =
-    state.mode === "team"
-
-      ? resources *
-        peoplePerTeam
-
-      : resources;
-
-
   const targetPeople =
     state.mode === "team"
 
@@ -1532,7 +1449,7 @@ function calculate() {
   const requiredYield =
     Q /
     (
-      targetPeople *
+     resouces *
       targetDays *
       E
     );
