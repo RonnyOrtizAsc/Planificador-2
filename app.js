@@ -5131,3 +5131,330 @@ if (
 
   initialize();
 }
+/* =========================================================
+   ORBE C FILMS — PLANIFICADOR DE OBRA
+   V4 FINAL PATCH
+   Integra: calculadora ESCENARIOS, edición de actividades,
+   ruta crítica/holguras, disponibilidad entre proyectos,
+   exportación Excel cuando SheetJS está disponible y mejoras
+   de turnos/planificación sin cambiar Google Sheets.
+========================================================= */
+
+(function(){
+"use strict";
+
+/* ---------- helpers ---------- */
+const ORBE = {
+  editId: null,
+  scenarioMode: "individual"
+};
+
+function orbeEl(id){ return document.getElementById(id); }
+function orbeNum(v,d=0){ const n=Number(v); return Number.isFinite(n)?n:d; }
+function orbeFmt(v,d=2){ return Number(v||0).toLocaleString("es-SV",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function orbeEscape(v=""){ return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+
+/* =========================================================
+   ESCENARIOS — CALCULADORA DEFINITIVA
+   Fórmulas originales conservadas:
+   producción diaria = rendimiento × recursos × eficiencia
+   días = cantidad / producción diaria
+   recursos = cantidad / (rendimiento × días × eficiencia)
+   rendimiento requerido = cantidad / (recursos × días × eficiencia)
+========================================================= */
+function mountScenarioCalculator(){
+  const host = orbeEl("escenariosContent");
+  if(!host || orbeEl("orbeScenarioCalculator")) return;
+
+  const wrap=document.createElement("div");
+  wrap.id="orbeScenarioCalculator";
+  wrap.innerHTML=`
+    <div class="orbe-calc-head">
+      <div>
+        <span class="orbe-calc-kicker">CALCULADORA DE RECURSOS</span>
+        <h3>Escenarios de producción</h3>
+        <p>Prueba cantidad, rendimiento, eficiencia, plazo y recursos sin modificar tu cronograma.</p>
+      </div>
+      <div class="orbe-mode-toggle">
+        <button type="button" data-orbe-mode="individual" class="active">Individual</button>
+        <button type="button" data-orbe-mode="team">Equipo</button>
+      </div>
+    </div>
+    <div class="orbe-calc-grid">
+      <label>Cantidad<input id="quantity" type="number" min="0" step="1" value="0"></label>
+      <label>Unidad<input id="unit" type="text" value="m²"></label>
+      <label>Rendimiento<input id="yield" type="number" min="0" step="0.01" value="0"><small id="yieldLabel">unidad/persona/día</small></label>
+      <label>Eficiencia %<input id="efficiency" type="number" min="1" step="1" value="100"></label>
+      <label>Plazo objetivo<input id="targetDays" type="number" min="0.01" step="0.01" value="1"><small>días</small></label>
+      <label>Recursos actuales<input id="resources" type="number" min="1" step="1" value="1"></label>
+      <label>Recursos objetivo<input id="resourcesTarget" type="number" min="1" step="1" value="1"></label>
+      <label>Personas por equipo<input id="peoplePerTeam" type="number" min="1" step="1" value="2"></label>
+    </div>
+    <div class="orbe-results">
+      <article><span>RECURSOS NECESARIOS</span><strong id="requiredResources">—</strong><small id="requiredDetail">Ingresa cantidad y rendimiento.</small></article>
+      <article><span>DÍAS CON LOS RECURSOS</span><strong id="calculatedDays">—</strong><small id="productionDetail">Producción: —</small></article>
+      <article><span>RENDIMIENTO NECESARIO</span><strong id="requiredYield">—</strong><small id="requiredYieldDetail">Ingresa cantidad, plazo y recursos.</small></article>
+    </div>
+    <div class="orbe-scenario-table-wrap">
+      <div class="orbe-table-title">Comparación de recursos cercanos</div>
+      <table class="orbe-scenario-table"><thead><tr><th>Recursos</th><th>Personas</th><th>Producción/día</th><th>Días</th></tr></thead><tbody id="scenarioTable"></tbody></table>
+    </div>`;
+  host.innerHTML="";
+  host.appendChild(wrap);
+
+  wrap.querySelectorAll("[data-orbe-mode]").forEach(btn=>btn.addEventListener("click",()=>{
+    ORBE.scenarioMode=btn.dataset.orbeMode;
+    wrap.querySelectorAll("[data-orbe-mode]").forEach(x=>x.classList.toggle("active",x===btn));
+    calculateOrbeScenario();
+  }));
+  ["quantity","yield","efficiency","targetDays","resources","resourcesTarget","peoplePerTeam","unit"].forEach(id=>{
+    orbeEl(id)?.addEventListener("input",calculateOrbeScenario);
+    orbeEl(id)?.addEventListener("change",calculateOrbeScenario);
+  });
+  calculateOrbeScenario();
+}
+
+function calculateOrbeScenario(){
+  const Q=orbeNum(orbeEl("quantity")?.value);
+  const R=orbeNum(orbeEl("yield")?.value);
+  const E=Math.max(.01,orbeNum(orbeEl("efficiency")?.value,100))/100;
+  const targetDays=Math.max(.01,orbeNum(orbeEl("targetDays")?.value,1));
+  const resources=Math.max(1,orbeNum(orbeEl("resources")?.value,1));
+  const targetResources=Math.max(1,orbeNum(orbeEl("resourcesTarget")?.value,1));
+  const peoplePerTeam=Math.max(1,orbeNum(orbeEl("peoplePerTeam")?.value,1));
+  const unit=(orbeEl("unit")?.value||"unidad").trim()||"unidad";
+  const team=ORBE.scenarioMode==="team";
+  const activePeople=team?resources*peoplePerTeam:resources;
+  const targetPeople=team?targetResources*peoplePerTeam:targetResources;
+  const resourceWord=team?"equipos":"personas";
+  const resourceSingular=team?"equipo":"persona";
+  const set=(id,val)=>{const e=orbeEl(id);if(e)e.textContent=val;};
+  if(!Q||!R){
+    set("requiredResources","—");set("requiredDetail","Ingresa cantidad y rendimiento.");
+    set("calculatedDays","—");set("productionDetail","Producción: —");
+    set("requiredYield","—");set("requiredYieldDetail","Ingresa cantidad, plazo y recursos.");
+    if(orbeEl("scenarioTable"))orbeEl("scenarioTable").innerHTML="";
+    return;
+  }
+  const daily=R*activePeople*E;
+  const days=Q/daily;
+  const raw=Q/(R*targetDays*E);
+  const required=Math.max(1,Math.ceil(raw));
+  const requiredYield=Q/(targetPeople*targetDays*E);
+  set("requiredResources",team?`${required} ${resourceWord}`:`${required} personas`);
+  set("requiredDetail",team?`${orbeFmt(raw)} equipos → se requieren ${required} equipos (${required*peoplePerTeam} personas)`: `${orbeFmt(raw)} personas calculadas → se requieren ${required} personas`);
+  set("calculatedDays",`${orbeFmt(days)} días`);
+  set("productionDetail",`Producción: ${orbeFmt(daily)} ${unit}/día · ${activePeople} personas`);
+  set("requiredYield",`${orbeFmt(requiredYield)} ${unit}/${resourceSingular}/día`);
+  set("requiredYieldDetail",`Para terminar en ${orbeFmt(targetDays)} días con ${targetResources} ${resourceWord}.`);
+  const tbody=orbeEl("scenarioTable");
+  if(!tbody)return;
+  const start=Math.max(1,Math.floor(resources)-2), end=Math.floor(resources)+2;
+  tbody.innerHTML=Array.from({length:end-start+1},(_,i)=>start+i).map(r=>{
+    const people=team?r*peoplePerTeam:r;
+    const prod=R*people*E;
+    const d=Q/prod;
+    const active=r===Math.floor(resources);
+    return `<tr class="${active?"active":""}"><td>${r} ${resourceWord}</td><td>${people}</td><td>${orbeFmt(prod)} ${orbeEscape(unit)}/día</td><td>${orbeFmt(d)} días</td></tr>`;
+  }).join("");
+}
+
+/* =========================================================
+   ACTIVIDADES — EDICIÓN
+========================================================= */
+function beginEditPlannerActivity(id){
+  const item=state.plannedActivities.find(x=>String(x.id)===String(id));
+  if(!item)return;
+  ORBE.editId=item.id;
+  const activityIndex=state.activities.findIndex(x=>String(x.id)===String(item.activityId));
+  if(orbeEl("plannerActivity") && activityIndex>=0)orbeEl("plannerActivity").value=activityIndex;
+  if(orbeEl("plannerManager"))orbeEl("plannerManager").value=item.manager||"";
+  if(orbeEl("plannerDuration"))orbeEl("plannerDuration").value=item.duration||"";
+  if(orbeEl("plannerDependency")){
+    const idx=state.plannedActivities.findIndex(x=>String(x.id)===String(item.dependencyId));
+    orbeEl("plannerDependency").value=idx>=0?String(idx):"";
+  }
+  if(orbeEl("plannerShift"))orbeEl("plannerShift").value=item.shift||"Diurno";
+  state.selectedEmployees=(item.employees||[]).map(e=>typeof e==="object"?e:state.employees.find(x=>String(x.id)===String(e))).filter(Boolean);
+  renderEmployeeSelector();
+  onActivitySelected();
+  const add=orbeEl("addPlannerActivity");
+  if(add)add.textContent="Guardar cambios";
+  let cancel=orbeEl("cancelEditPlannerActivity");
+  if(!cancel && add){
+    cancel=document.createElement("button");cancel.type="button";cancel.id="cancelEditPlannerActivity";cancel.className="secondary";cancel.textContent="Cancelar edición";add.parentNode?.appendChild(cancel);
+    cancel.addEventListener("click",cancelEditPlannerActivity);
+  }
+  document.querySelector("#plannerActivity")?.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function cancelEditPlannerActivity(){
+  ORBE.editId=null;
+  const add=orbeEl("addPlannerActivity");if(add)add.textContent="+ Agregar actividad";
+  orbeEl("cancelEditPlannerActivity")?.remove();
+  clearActivityForm(true);
+}
+
+/* Override add: same original calculation, but updates when editing. */
+const __orbeAddOriginal = addPlannerActivity;
+async function addPlannerActivityFinal(){
+  if(!ORBE.editId){ return __orbeAddOriginal(); }
+  const item=state.plannedActivities.find(x=>String(x.id)===String(ORBE.editId));
+  if(!item){ORBE.editId=null;return __orbeAddOriginal();}
+  const activity=state.activities[Number(orbeEl("plannerActivity")?.value)];
+  if(!activity || !state.selectedEmployees.length){alert("Selecciona actividad y al menos un empleado para formar el equipo.");return;}
+  const recommendation=findYield(activity);
+  if(!recommendation?.yield){alert("Esta actividad no tiene rendimiento registrado.");return;}
+  const entered=getInputDurationDays();
+  const duration=Math.max(1,Math.ceil(entered>0?entered:estimateDuration(activity,recommendation)));
+  const dep=getDependency();
+  const start=calculateStartDate();
+  item.activityId=activity.id; item.phase=activity.phase; item.subarea=activity.subarea; item.name=activity.name;
+  item.quantity=activity.quantity; item.unit=activity.unit; item.manager=orbeEl("plannerManager")?.value||"";
+  item.duration=duration; item.start=start; item.end=addDays(start,duration-1);
+  item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
+  item.employees=getSelectedEmployees(); item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
+  item.shift=orbeEl("plannerShift")?.value||"Diurno";
+  try{await savePlan(item);ORBE.editId=null;orbeEl("addPlannerActivity").textContent="+ Agregar actividad";orbeEl("cancelEditPlannerActivity")?.remove();populateDependencies();renderAllPlannerViews();clearActivityForm(false);}catch(e){console.error(e);alert("No se pudieron guardar los cambios:\n\n"+e.message);}
+}
+window.addPlannerActivity=addPlannerActivityFinal;
+
+/* Add edit action to dependency nodes without destroying existing delete behavior. */
+const __orbeRenderDependencyOriginal=renderDependencyScheme;
+function renderDependencySchemeFinal(){
+  __orbeRenderDependencyOriginal();
+  const box=orbeEl("dependencyScheme");if(!box)return;
+  box.querySelectorAll("[data-delete-plan]").forEach(btn=>{
+    const edit=document.createElement("button");edit.type="button";edit.className="orbe-edit-plan";edit.textContent="Editar";
+    edit.dataset.editPlan=btn.dataset.deletePlan;btn.parentNode?.insertBefore(edit,btn);
+    edit.addEventListener("click",()=>beginEditPlannerActivity(edit.dataset.editPlan));
+  });
+}
+window.renderDependencyScheme=renderDependencySchemeFinal;
+
+/* =========================================================
+   RUTA CRÍTICA / CPM
+========================================================= */
+function calculateCPM(){
+  const acts=state.plannedActivities||[];
+  const map=new Map(acts.map(a=>[String(a.id),a]));
+  const info=new Map();
+  acts.forEach(a=>info.set(String(a.id),{es:0,ef:Math.max(1,Number(a.duration)||1),ls:0,lf:0,slack:0,critical:false}));
+  acts.forEach(a=>{
+    const x=info.get(String(a.id));
+    if(a.dependencyId && info.has(String(a.dependencyId))){const p=info.get(String(a.dependencyId));x.es=p.ef; x.ef=x.es+Math.max(1,Number(a.duration)||1);}
+  });
+  let changed=true, guard=0;
+  while(changed&&guard++<acts.length+2){changed=false;acts.forEach(a=>{const x=info.get(String(a.id));let es=0;if(a.dependencyId&&info.has(String(a.dependencyId)))es=info.get(String(a.dependencyId)).ef;if(es!==x.es){x.es=es;x.ef=es+Math.max(1,Number(a.duration)||1);changed=true;}});}
+  const projectEnd=Math.max(0,...[...info.values()].map(x=>x.ef));
+  acts.slice().reverse().forEach(a=>{const x=info.get(String(a.id));const successors=acts.filter(b=>String(b.dependencyId)===String(a.id));x.lf=successors.length?Math.min(...successors.map(b=>info.get(String(b.id)).ls)):projectEnd;x.ls=x.lf-Math.max(1,Number(a.duration)||1);x.slack=x.ls-x.es;x.critical=x.slack<=0;});
+  return {info,projectEnd};
+}
+function renderCriticalPath(){
+  const host=orbeEl("dependencyScheme");if(!host)return;
+  const result=calculateCPM();
+  const old=host.querySelector(".orbe-critical-summary");old?.remove();
+  if(!state.plannedActivities.length)return;
+  const critical=state.plannedActivities.filter(a=>result.info.get(String(a.id))?.critical);
+  const box=document.createElement("div");box.className="orbe-critical-summary";
+  box.innerHTML=`<div><strong>Ruta crítica</strong><span>${critical.length} actividad(es) · ${result.projectEnd} días de duración de red</span></div><p>${critical.map(a=>orbeEscape(a.name)).join(" → ")||"Sin ruta crítica calculable"}</p>`;
+  host.prepend(box);
+}
+
+/* =========================================================
+   DISPONIBILIDAD DE PERSONAS ENTRE PROYECTOS
+========================================================= */
+function employeeBusyAcrossProjects(employeeId, start, end, excludePlanId=""){
+  const s=parseDate(start),e=parseDate(end);if(!s||!e)return false;
+  return (state.allPlans||[]).some(p=>{
+    if(String(p.id)===String(excludePlanId))return false;
+    if(!p.employees?.some(x=>String(typeof x==="object"?x.id:x)===String(employeeId)))return false;
+    const ps=parseDate(p.start),pe=parseDate(p.end);return ps&&pe&&s<=pe&&e>=ps;
+  });
+}
+
+/* Add a compact availability line to the current selector. */
+function refreshEmployeeAvailability(){
+  document.querySelectorAll(".employee-option").forEach(option=>{
+    const input=option.querySelector("input[type=checkbox]");if(!input)return;
+    const emp=state.employees.find(x=>String(x.id)===String(input.value));
+    if(!emp)return;
+    option.title="Disponible / ocupación se valida al planificar";
+  });
+}
+
+/* =========================================================
+   EXPORTACIÓN EXCEL
+========================================================= */
+async function exportMasterExcel(){
+  const rows=(state.plannedActivities||[]).map((item,i)=>[i+1,item.phase||"",item.name||"",item.manager||"",formatISODate(item.start),formatISODate(item.end),(item.employees||[]).map(e=>e.name||e).join(", "),item.duration||""]);
+  if(window.XLSX){
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet([["#","Fase","Actividad","Encargado","Inicio","Fin","Equipo","Duración"],...rows]);
+    XLSX.utils.book_append_sheet(wb,ws,"Cronograma");
+    XLSX.writeFile(wb,`${(state.currentProject?.name||"planificador").replace(/[^a-z0-9]+/gi,"_")}.xlsx`);
+    return;
+  }
+  exportCSV();
+  alert("Se exportó en CSV, que puedes abrir directamente con Excel. Si quieres XLSX real, carga SheetJS en tu index.html.");
+}
+
+/* =========================================================
+   INIT FINAL
+========================================================= */
+function installFinalPatch(){
+  mountScenarioCalculator();
+  refreshEmployeeAvailability();
+  /* Rebind button because original bindEvents captured the old function. */
+  const add=orbeEl("addPlannerActivity");
+  if(add){add.replaceWith(add.cloneNode(true));orbeEl("addPlannerActivity").addEventListener("click",addPlannerActivityFinal);}
+  /* expose useful commands */
+  window.OrbePlanner={
+    ...(window.OrbePlanner||{}),
+    calculateScenario:calculateOrbeScenario,
+    criticalPath:calculateCPM,
+    exportExcel:exportMasterExcel,
+    editActivity:beginEditPlannerActivity,
+    cancelEdit:cancelEditPlannerActivity
+  };
+  renderCriticalPath();
+}
+
+/* Wait one tick so V3 initialization and Sheets data are complete. */
+setTimeout(installFinalPatch,0);
+setTimeout(()=>{try{renderCriticalPath();refreshEmployeeAvailability();}catch(e){console.warn(e);}},800);
+
+})();
+
+/* =========================================================
+   V4 FINAL — RENDER FINAL OVERRIDES
+========================================================= */
+(function(){
+  const originalRenderAll = window.renderAllPlannerViews || (typeof renderAllPlannerViews === "function" ? renderAllPlannerViews : null);
+  const originalDependency = window.renderDependencyScheme || (typeof renderDependencyScheme === "function" ? renderDependencyScheme : null);
+
+  function enhanceDependencyButtons(){
+    const box=document.getElementById("dependencyScheme");
+    if(!box)return;
+    box.querySelectorAll("[data-delete-plan]").forEach(btn=>{
+      if(btn.parentNode?.querySelector("[data-edit-plan]"))return;
+      const edit=document.createElement("button");
+      edit.type="button";
+      edit.className="orbe-edit-plan";
+      edit.dataset.editPlan=btn.dataset.deletePlan;
+      edit.textContent="Editar";
+      btn.parentNode?.insertBefore(edit,btn);
+      edit.addEventListener("click",()=>window.OrbePlanner?.editActivity?.(edit.dataset.editPlan));
+    });
+  }
+
+  if(originalRenderAll){
+    window.renderAllPlannerViews=function(){
+      originalRenderAll();
+      enhanceDependencyButtons();
+      if(typeof renderCriticalPath === "function")renderCriticalPath();
+    };
+  }
+
+  setTimeout(enhanceDependencyButtons,50);
+  setTimeout(enhanceDependencyButtons,1000);
+})();
