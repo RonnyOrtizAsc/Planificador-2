@@ -246,7 +246,7 @@
 
               <div class="compound">
 
-                <input id="quantity" type="number" min="0" step="0.01" value="">
+                <input id="quantity" type="number" min="0" step="1" value="95">
 
                 <input id="unit" type="text" value="" maxlength="10" >
 
@@ -255,34 +255,6 @@
             </label>
 
 
-            <!-- FORMA DE TRABAJO -->
-
-            <label class="field">
-
-              <span>
-                Forma de trabajo
-              </span>
-
-              <div class="segmented">
-
-                <button
-                  id="individualBtn"
-                  class="selected"
-                  type="button"
-                >
-                  Individual
-                </button>
-
-                <button
-                  id="teamBtn"
-                  type="button"
-                >
-                  Equipo
-                </button>
-
-              </div>
-
-            </label>
 
 
             <!-- RENDIMIENTO -->
@@ -335,35 +307,7 @@
             </label>
 
 
-            <!-- PERSONAS POR EQUIPO -->
-
-            <label
-              class="field"
-              id="peoplePerTeamWrap"
-              hidden
-            >
-
-              <span>
-                Personas por equipo
-              </span>
-
-              <div class="metric-input compact">
-
-                <input
-                  id="peoplePerTeam"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value="2"
-                >
-
-                <span>
-                  pers.
-                </span>
-
-              </div>
-
-            </label>
+      
 
 
           </div>
@@ -488,7 +432,7 @@
             <div class="result-top">
 
               <span class="result-tag">
-                TRABAJO CON
+                CON
               </span>
 
               <span class="arrow">
@@ -540,66 +484,48 @@
 
           </article>
 
+<!-- ESCENARIO 3 -->
 
-          <!-- ESCENARIO 3 -->
+<article class="result-card">
 
-          <article class="result-card">
+  <div class="result-top">
 
-            <div class="result-top">
+    <span class="result-tag">
+      PRODUCCIÓN NECESARIA
+    </span>
 
-              <span class="result-tag">
-                QUIERO USAR
-              </span>
+    <span class="arrow">
+      →
+    </span>
 
-              <span class="arrow">
-                →
-              </span>
-
-            </div>
-
-
-            <div class="hero-input">
-
-              <input
-                id="resourcesTarget"
-                type="number"
-                min="1"
-                step="1"
-                value="2"
-              >
-
-              <span id="resourceLabel2">
-                personas
-              </span>
-
-            </div>
+  </div>
 
 
-            <div class="result-divider"></div>
+  <div class="result-divider"></div>
 
 
-            <div class="result-label">
-              Rendimiento requerido
-            </div>
+  <div class="result-label">
+    Debo producir
+  </div>
 
 
-            <div
-              class="result-big smaller"
-              id="requiredYield"
-            >
-              —
-            </div>
+  <div
+    class="result-big smaller"
+    id="requiredYield"
+  >
+    —
+  </div>
 
 
-            <div
-              class="result-note"
-              id="requiredYieldDetail"
-            >
-              Para cumplir el plazo indicado.
-            </div>
+  <div
+    class="result-note"
+    id="requiredYieldDetail"
+  >
+    Para cumplir el plazo indicado.
+  </div>
 
-          </article>
-
+</article>
+         
         </div>
 
 
