@@ -1,739 +1,242 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0b0d10">
-
-  <title>Planificador de Obra</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  >
-
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0d10">
+<title>Planificador de Obra · Grupo Q</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-
 <div class="app-shell">
-
-  <!-- ==================================================
-       SIDEBAR
-  =================================================== -->
-
   <aside class="sidebar">
-
     <div class="brand">
-
-      <div class="brand-mark">
-        PO
-      </div>
-
-      <div>
-        <strong>Planificador</strong>
-        <span>de obra</span>
-      </div>
-
+      <div class="brand-mark">PO</div>
+      <div><strong>Planificador</strong><span>de obra</span></div>
     </div>
-
-
-    <nav class="nav">
-
-      <button class="nav-item active">
-        <span class="nav-icon">⌁</span>
-        Calculadora
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">▦</span>
-        Partidas
-        <b id="navCount">0</b>
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">◫</span>
-        Rendimientos
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">↗</span>
-        Cronograma
-        <em>Próximo</em>
-      </button>
-
+    <nav class="nav" id="mainNav">
+      <button class="nav-item active" data-view="calculator"><span class="nav-icon">⌁</span>Calculadora</button>
+      <button class="nav-item" data-view="activities"><span class="nav-icon">▦</span>Actividades <b id="navCount">366</b></button>
+      <button class="nav-item" data-view="yields"><span class="nav-icon">◫</span>Rendimientos</button>
+      <button class="nav-item" data-view="schedule"><span class="nav-icon">↗</span>Cronograma</button>
     </nav>
-
-
     <div class="sidebar-bottom">
-
       <div class="project-mini">
-
-        <span class="mini-label">
-          PROYECTO ACTUAL
-        </span>
-
-        <strong>
-          Grupo Q · Santa Elena
-        </strong>
-
-        <span>
-          Inicio 16 OCT 2026
-        </span>
-
+        <span class="mini-label">PROYECTO ACTUAL</span>
+        <strong id="sideProject">Grupo Q · Santa Elena</strong>
+        <span id="sideDates">16 OCT 2026 → 16 FEB 2027</span>
       </div>
-
-      <div class="version">
-        PLANIFICADOR
-        <span>V1.0</span>
-      </div>
-
+      <div class="version">PLANIFICADOR <span>V2.0</span></div>
     </div>
-
   </aside>
 
-
-  <!-- ==================================================
-       MAIN
-  =================================================== -->
-
   <div class="main">
-
-
-    <!-- TOPBAR -->
-
     <header class="topbar">
-
-      <div class="mobile-brand">
-        <span>PO</span>
-        Planificador
-      </div>
-
+      <div class="mobile-brand"><span>PO</span>Planificador</div>
       <div class="topbar-right">
-
-        <div class="connection">
-
-          <i></i>
-
-          <span id="connectionText">
-            Conectando con Google Sheets
-          </span>
-
-        </div>
-
-        <button
-          class="icon-btn"
-          title="Configuración"
-        >
-          ⚙
-        </button>
-
+        <div class="connection"><i id="connectionDot"></i><span id="connectionText">Datos locales</span></div>
+        <button class="icon-btn" id="settingsBtn" title="Configuración">⚙</button>
       </div>
-
     </header>
 
-
-    <!-- CONTENIDO -->
-
     <main class="content">
-
-
-      <!-- ==================================================
-           HERO
-      =================================================== -->
-
-      <section class="hero">
-
-        <div>
-
-          <div class="kicker">
-            <span></span>
-            MOTOR DE PRODUCCIÓN
-          </div>
-
-          <h1>
-            Calcula antes de
-            <i>programar.</i>
-          </h1>
-
-          <p>
-            Selecciona una partida, define su rendimiento
-            y descubre cuántas personas, equipos o días
-            necesitas para ejecutarla.
-          </p>
-
-        </div>
-
-      </section>
-
-
-      <!-- ==================================================
-           ACTIVIDAD
-      =================================================== -->
-
-      <section class="workspace">
-
-
-        <div class="card activity-card">
-
-
-          <div class="card-title">
-
-            <div class="number">
-              01
-            </div>
-
-            <div>
-
-              <h2>
-                Define la actividad
-              </h2>
-
-              <p>
-                Selecciona una partida del proyecto
-                o haz una prueba libre.
-              </p>
-
-            </div>
-
-            <div class="live-dot">
-              EDITABLE
-            </div>
-
-          </div>
-
-
-          <div class="form-grid">
-
-
-            <!-- ACTIVIDAD -->
-
-            <label class="field activity-field">
-
-              <span>
-                Actividad
-                <small>opcional</small>
-              </span>
-
-              <div class="select-wrap">
-
-                <select id="activitySelect">
-
-                  <option value="">
-                    Sin actividad — prueba libre
-                  </option>
-
-                </select>
-
-                <b>⌄</b>
-
-              </div>
-
-            </label>
-
-
-            <!-- CANTIDAD -->
-
-            <label class="field">
-
-              <span>
-                Cantidad
-              </span>
-
-              <div class="compound">
-
-                <input id="quantity" type="number" min="0" step="1" value="95">
-
-                <input id="unit" type="text" value="" maxlength="10" >
-
-              </div>
-
-            </label>
-
-
-
-
-            <!-- RENDIMIENTO -->
-
-            <label class="field">
-
-              <span>
-                Rendimiento
-              </span>
-
-              <div class="metric-input">
-
-              <input id="yield" type="number" min="0.0001" step="0.01" value="">
-
-                <span id="yieldSuffix">
-                  m² / persona / día
-                </span>
-
-              </div>
-
-            </label>
-
-
-            <!-- EFICIENCIA -->
-
-            <label class="field">
-
-              <span>
-                Eficiencia
-                <small>ajuste</small>
-              </span>
-
-              <div class="metric-input compact">
-
-                <input
-                  id="efficiency"
-                  type="number"
-                  min="1"
-                  max="100"
-                  step="1"
-                  value="100"
-                >
-
-                <span>
-                  %
-                </span>
-
-              </div>
-
-            </label>
-
-
-      
-
-
-          </div>
-
-
-          <div class="activity-footer">
-
-            <div class="source">
-
-              <span class="source-icon">
-                ⌁
-              </span>
-
-              <span id="activityInfo">
-                Selecciona una partida para cargar
-                automáticamente su cantidad y unidad.
-              </span>
-
-            </div>
-
-
-            <button
-              class="text-btn"
-              id="clearActivity"
-            >
-              Limpiar selección
-              <span>↗</span>
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- ==================================================
-             ESCENARIOS
-        =================================================== -->
-
-        <div class="results-heading">
-
-          <div class="number">
-            02
-          </div>
-
+      <!-- CALCULATOR -->
+      <section class="view active" id="view-calculator">
+        <section class="hero">
           <div>
-
-            <h2>
-              Explora los escenarios
-            </h2>
-
-            <p>
-              Cambia días, recursos o rendimiento
-              y observa cómo cambia el resultado.
-            </p>
-
+            <div class="kicker"><span></span>MOTOR DE PRODUCCIÓN</div>
+            <h1>Calcula antes de <i>programar.</i></h1>
+            <p>Define cantidad, rendimiento y recursos. La aplicación calcula producción, duración y la carga necesaria para cumplir el plazo.</p>
           </div>
-
-        </div>
-
-
-        <div class="scenario-grid">
-
-
-          <!-- ESCENARIO 1 -->
-
-          <article class="result-card featured">
-
-            <div class="result-top">
-
-              <span class="result-tag">
-                QUIERO TERMINAR EN
-              </span>
-
-              <span class="arrow">
-                →
-              </span>
-
-            </div>
-
-
-            <div class="hero-input">
-
-              <input id="targetDays" type="number" min="0.01" step="0.01"  value="3" >
-
-              <span>
-                días
-              </span>
-
-            </div>
-
-
-            <div class="result-divider"></div>
-
-
-            <div class="result-label">
-              Necesito
-            </div>
-
-
-            <div
-              class="result-big"
-              id="requiredResources"
-            >
-              —
-            </div>
-
-
-            <div
-              class="result-note"
-              id="requiredDetail"
-            >
-              Calculando...
-            </div>
-
-          </article>
-
-
-          <!-- ESCENARIO 2 -->
-
-          <article class="result-card">
-
-            <div class="result-top">
-
-              <span class="result-tag">
-                CON
-              </span>
-
-              <span class="arrow">
-                →
-              </span>
-
-            </div>
-
-
-            <div class="hero-input">
-
-              <input
-                id="resources"
-                type="number"
-                min="1"
-                step="1"
-                value="3"
-              >
-
-              <span id="resourceLabel">
-                personas
-              </span>
-
-            </div>
-
-
-            <div class="result-divider"></div>
-
-
-            <div class="result-label">
-              Termino en
-            </div>
-
-
-            <div
-              class="result-big"
-              id="calculatedDays"
-            >
-              —
-            </div>
-
-
-            <div
-              class="result-note"
-              id="productionDetail"
-            >
-              Producción: —
-            </div>
-
-          </article>
-
-<!-- ESCENARIO 3 -->
-
-<article class="result-card">
-
-  <div class="result-top">
-
-    <span class="result-tag">
-      PRODUCCIÓN NECESARIA
-    </span>
-
-    <span class="arrow">
-      →
-    </span>
-
-  </div>
-
-
-  <div class="result-divider"></div>
-
-
-  <div class="result-label">
-    Debo producir
-  </div>
-
-
-  <div
-    class="result-big smaller"
-    id="requiredYield"
-  >
-    —
-  </div>
-
-
-  <div
-    class="result-note"
-    id="requiredYieldDetail"
-  >
-    Para cumplir el plazo indicado.
-  </div>
-
-</article>
-         
-        </div>
-
-
-        <!-- ==================================================
-             COMPARACIÓN
-        =================================================== -->
-
-        <section class="card comparison-card">
-
-          <div class="comparison-head">
-
-            <div>
-
-              <div class="section-eyebrow">
-                COMPARACIÓN RÁPIDA
-              </div>
-
-              <h2>
-                ¿Qué pasa si cambio los recursos?
-              </h2>
-
-            </div>
-
-            <div class="formula">
-
-              <span>
-                PRODUCCIÓN
-              </span>
-
-              <b>
-                R × PERSONAS × EFICIENCIA
-              </b>
-
-            </div>
-
+          <div class="hero-date">
+            <span>OBJETIVO DEL PROYECTO</span>
+            <strong>16 <small>SEMANAS</small></strong>
+            <em>16 OCT 2026 → 16 FEB 2027</em>
           </div>
-
-
-          <div class="table-wrap">
-
-            <table>
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Recursos
-                  </th>
-
-                  <th>
-                    Producción diaria
-                  </th>
-
-                  <th>
-                    Duración
-                  </th>
-
-                  <th>
-                    Objetivo
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody
-                id="scenarioTable"
-              ></tbody>
-
-            </table>
-
-          </div>
-
         </section>
 
-
-        <!-- ==================================================
-             BOTTOM
-        =================================================== -->
-
-        <section class="bottom-grid">
-
-
-          <!-- BIBLIOTECA -->
-
-          <div class="card library-card">
-
-            <div class="card-title small-title">
-
-              <div class="number">
-                03
-              </div>
-
-              <div>
-
-                <h2>
-                  Biblioteca de rendimientos
-                </h2>
-
-                <p>
-                  Guarda datos que quieras reutilizar.
-                </p>
-
-              </div>
-
+        <section class="workspace">
+          <div class="card activity-card">
+            <div class="card-title">
+              <div class="number">01</div>
+              <div><h2>Define la actividad</h2><p>Selecciona una actividad del BOQ o haz una prueba libre.</p></div>
+              <div class="live-dot">EDITABLE</div>
             </div>
 
+            <div class="form-grid">
+              <label class="field activity-field">
+                <span>Actividad <small>opcional</small></span>
+                <div class="select-wrap"><select id="activitySelect"><option value="">Sin actividad — prueba libre</option></select><b>⌄</b></div>
+              </label>
+              <label class="field">
+                <span>Cantidad</span>
+                <div class="compound"><input id="quantity" type="number" min="0" step="1" value="95"><span id="unitSuffix">m²</span></div>
+              </label>
+              <label class="field">
+                <span>Unidad</span>
+                <input id="unit" type="text" value="m²" readonly>
+              </label>
+              <label class="field">
+                <span>Forma de trabajo</span>
+                <div class="segmented">
+                  <button type="button" class="selected" id="individualBtn">Personas</button>
+                  <button type="button" id="teamBtn">Equipo</button>
+                </div>
+              </label>
+            </div>
 
-            <div
-              class="library-empty"
-              id="presetList"
-            ></div>
+            <div class="activity-context" id="activityContext">
+              <span>Sin actividad seleccionada</span>
+              <span>La cantidad y unidad son editables.</span>
+            </div>
 
-
-            <button
-              class="outline-btn"
-              id="savePreset"
-            >
-              + Guardar rendimiento actual
-            </button>
-
+            <div class="metrics-grid">
+              <label class="field">
+                <span>Rendimiento</span>
+                <div class="compound"><input id="yield" type="number" min="0.0001" step="0.01" value="15"><span id="yieldSuffix">m² / persona / día</span></div>
+              </label>
+              <label class="field">
+                <span>Eficiencia</span>
+                <div class="metric-input"><input id="efficiency" type="number" min="1" max="100" step="1" value="100"><span>%</span></div>
+              </label>
+              <label class="field">
+                <span>Objetivo</span>
+                <div class="metric-input"><input id="targetDays" type="number" min="0.01" step="0.5" value="3"><span>días</span></div>
+              </label>
+              <label class="field">
+                <span>Con</span>
+                <div class="metric-input"><input id="resources" type="number" min="1" step="1" value="2"><span id="resourceLabel">personas</span></div>
+              </label>
+            </div>
           </div>
 
+          <div class="results-grid">
+            <article class="result-card accent">
+              <div class="result-top"><span class="result-tag">QUIERO TERMINAR EN</span><span class="arrow">→</span></div>
+              <div class="hero-input"><input id="targetDaysMirror" type="number" min="0.01" step="0.5" value="3"><span>días</span></div>
+              <div class="result-divider"></div>
+              <div class="result-label">Necesito</div>
+              <div class="result-big" id="requiredResources">—</div>
+              <div class="result-note" id="requiredDetail">Calculando...</div>
+            </article>
 
-          <!-- GOOGLE SHEETS -->
+            <article class="result-card">
+              <div class="result-top"><span class="result-tag">CON</span><span class="arrow">→</span></div>
+              <div class="hero-input"><input id="resourcesMirror" type="number" min="1" step="1" value="2"><span id="resourceLabelMirror">personas</span></div>
+              <div class="result-divider"></div>
+              <div class="result-label">Termino en</div>
+              <div class="result-big" id="calculatedDays">—</div>
+              <div class="result-note" id="productionDetail">Producción: —</div>
+            </article>
 
-          <div class="card sheets-card">
-
-            <div class="card-title small-title">
-
-              <div class="number">
-                04
-              </div>
-
-              <div>
-
-                <h2>
-                  Fuente de partidas
-                </h2>
-
-                <p>
-                  Partidas tomadas directamente
-                  de tu Google Sheet.
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <div class="sheets-status">
-
-              <span class="sheet-logo">
-                G
-              </span>
-
-              <div>
-
-                <strong id="sheetStatusTitle">
-                  Google Sheets
-                </strong>
-
-                <span id="sheetStatusText">
-                  Conectando...
-                </span>
-
-              </div>
-
-            </div>
-
-
-            <div
-              class="tiny-status"
-              id="status"
-            >
-              Conectando con PLAN DE OFERTA…
-            </div>
-
+            <article class="result-card">
+              <div class="result-top"><span class="result-tag">PRODUCCIÓN NECESARIA</span><span class="arrow">→</span></div>
+              <div class="result-divider"></div>
+              <div class="result-label">Debo producir</div>
+              <div class="result-big smaller" id="requiredYield">—</div>
+              <div class="result-note" id="requiredYieldDetail">Para cumplir el plazo indicado.</div>
+            </article>
           </div>
 
+          <section class="card comparison-card">
+            <div class="comparison-head">
+              <div><div class="section-eyebrow">COMPARACIÓN RÁPIDA</div><h2>¿Qué pasa si cambio el tamaño del recurso?</h2></div>
+              <div class="formula"><span>PRODUCCIÓN</span><b>R × RECURSOS × EFICIENCIA</b></div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Recursos</th><th>Producción diaria</th><th>Duración</th><th>Objetivo</th></tr></thead><tbody id="scenarioTable"></tbody></table></div>
+          </section>
 
+          <section class="bottom-grid">
+            <div class="card library-card">
+              <div class="card-title small-title"><div class="number">03</div><div><h2>Rendimiento actual</h2><p>Se puede guardar en la biblioteca.</p></div></div>
+              <div class="library-current"><strong id="currentYieldName">Prueba libre</strong><span id="currentYieldSource">Sin fuente validada</span></div>
+              <button class="outline-btn" id="savePreset">+ Guardar rendimiento</button>
+            </div>
+            <div class="card sheets-card">
+              <div class="card-title small-title"><div class="number">04</div><div><h2>Fuente de actividades</h2><p>La app puede trabajar localmente o leer tu Web App.</p></div></div>
+              <div class="sheets-status"><span class="sheet-logo">G</span><div><strong id="sheetStatusTitle">Datos locales</strong><span id="sheetStatusText">366 actividades disponibles.</span></div></div>
+              <input id="sheetsUrl" class="url-input" type="url" placeholder="URL del Web App de Apps Script">
+              <div class="sheet-actions"><button class="dark-btn" id="loadSheets">Conectar Sheet</button><button class="outline-btn" id="loadLocal">Usar datos locales</button></div>
+              <div class="tiny-status" id="status">Listo.</div>
+            </div>
+          </section>
         </section>
-
       </section>
 
+      <!-- ACTIVITIES -->
+      <section class="view" id="view-activities">
+        <div class="page-head">
+          <div><div class="kicker"><span></span>BOQ / ACTIVIDADES</div><h1>Actividades de <i>obra.</i></h1><p>Las actividades vienen del Plan de Oferta depurado. Aquí agregamos la capa de planificación.</p></div>
+          <div class="page-actions"><button class="dark-btn" id="refreshActivities">Actualizar</button></div>
+        </div>
+        <section class="card">
+          <div class="toolbar">
+            <input id="activitySearch" class="search-input" placeholder="Buscar actividad, zona o subárea…">
+            <select id="sectionFilter"><option value="">Todas las zonas</option></select>
+            <select id="statusFilter"><option value="">Todos los estados</option><option>Pendiente</option><option>En planificación</option><option>Programada</option><option>En ejecución</option><option>Terminada</option><option>Bloqueada</option></select>
+          </div>
+          <div class="table-wrap tall"><table class="data-table"><thead><tr><th>ID</th><th>Actividad</th><th>Zona</th><th>Subárea</th><th>Cantidad</th><th>Unidad</th><th>Fase</th><th>Recurso</th><th>Rend.</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody id="activitiesTable"></tbody></table></div>
+          <div class="table-footer"><span id="activityCount">366 actividades</span><span>Haz clic en una fila para planificarla.</span></div>
+        </section>
+      </section>
+
+      <!-- YIELDS -->
+      <section class="view" id="view-yields">
+        <div class="page-head">
+          <div><div class="kicker"><span></span>BIBLIOTECA</div><h1>Rendimientos <i>reales.</i></h1><p>La aplicación no inventa rendimientos. Aquí registras los que validen ustedes en obra.</p></div>
+          <div class="page-actions"><button class="dark-btn" id="addYieldBtn">+ Nuevo rendimiento</button></div>
+        </div>
+        <section class="card">
+          <div class="toolbar"><input id="yieldSearch" class="search-input" placeholder="Buscar rendimiento…"><select id="yieldModeFilter"><option value="">Todos</option><option>Individual</option><option>Equipo</option></select></div>
+          <div class="table-wrap tall"><table class="data-table"><thead><tr><th>Nombre</th><th>Unidad</th><th>Modo</th><th>Recurso / equipo</th><th>Rendimiento</th><th>Fuente</th><th>Validado por</th><th></th></tr></thead><tbody id="yieldsTable"></tbody></table></div>
+        </section>
+        <section class="card note-card"><strong>Regla:</strong> un rendimiento de referencia sirve para arrancar una estimación; un rendimiento validado en esta obra debe conservar su fuente y quién lo confirmó.</section>
+      </section>
+
+      <!-- SCHEDULE -->
+      <section class="view" id="view-schedule">
+        <div class="page-head">
+          <div><div class="kicker"><span></span>PROGRAMACIÓN</div><h1>Cronograma <i>calculado.</i></h1><p>Las fechas no se escriben como punto de partida: salen de duración + calendario + dependencias.</p></div>
+          <div class="page-actions"><button class="outline-btn" id="suggestDeps">Sugerir dependencias</button><button class="dark-btn" id="recalcSchedule">Recalcular</button></div>
+        </div>
+        <section class="schedule-summary">
+          <div class="stat-card"><span>INICIO</span><strong id="scheduleStart">16 OCT 2026</strong></div>
+          <div class="stat-card"><span>FIN CALCULADO</span><strong id="scheduleEnd">—</strong></div>
+          <div class="stat-card"><span>ACTIVIDADES</span><strong id="scheduleCount">366</strong></div>
+          <div class="stat-card"><span>CON RENDIMIENTO</span><strong id="scheduledCount">0</strong></div>
+        </section>
+        <section class="card">
+          <div class="toolbar"><input id="scheduleSearch" class="search-input" placeholder="Buscar en cronograma…"><select id="scheduleFrontFilter"><option value="">Todos los frentes</option></select></div>
+          <div class="table-wrap tall"><table class="data-table schedule-table"><thead><tr><th>ID</th><th>Actividad</th><th>Fase</th><th>Duración</th><th>Predecesora</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead><tbody id="scheduleTable"></tbody></table></div>
+        </section>
+      </section>
     </main>
 
-
-    <footer>
-
-      <span>
-        PLANIFICADOR DE OBRA · MOTOR DE RENDIMIENTOS
-      </span>
-
-      <span>
-        Hecho para planificar con datos,
-        no con intuición.
-      </span>
-
-    </footer>
-
+    <footer><span>PLANIFICADOR DE OBRA · MOTOR DE PRODUCCIÓN</span><span>Grupo Q · Santa Elena</span></footer>
   </div>
-
 </div>
 
+<div class="modal" id="yieldModal" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel">
+    <div class="modal-head"><div><div class="section-eyebrow">BIBLIOTECA</div><h2>Nuevo rendimiento</h2></div><button class="icon-btn" data-close-modal>×</button></div>
+    <div class="modal-grid">
+      <label class="field"><span>Nombre</span><input id="newYieldName"></label>
+      <label class="field"><span>Unidad</span><input id="newYieldUnit" placeholder="m²"></label>
+      <label class="field"><span>Modo</span><select id="newYieldMode"><option>Individual</option><option>Equipo</option></select></label>
+      <label class="field"><span>Recurso / equipo</span><input id="newYieldResource"></label>
+      <label class="field"><span>Rendimiento</span><input id="newYieldValue" type="number" step="0.01"></label>
+      <label class="field"><span>Fuente</span><input id="newYieldSource" placeholder="Ej. encargado / histórico / visita"></label>
+      <label class="field"><span>Validado por</span><input id="newYieldValidated"></label>
+      <label class="field full"><span>Notas</span><textarea id="newYieldNotes"></textarea></label>
+    </div>
+    <div class="modal-actions"><button class="outline-btn" data-close-modal>Cancelar</button><button class="dark-btn" id="saveYieldBtn">Guardar</button></div>
+  </div>
+</div>
 
 <script src="app.js"></script>
-
 </body>
 </html>
