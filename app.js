@@ -80,6 +80,31 @@ function fmt(
   );
 
 }
+function formatItem(value) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return String(value);
+  }
+
+  if (Number.isInteger(number)) {
+    return String(number);
+  }
+
+  return number
+    .toFixed(2)
+    .replace(/0+$/, "")
+    .replace(/\.$/, "");
+}
 
 
 function unit() {
