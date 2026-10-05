@@ -2660,85 +2660,95 @@ function renderMasterRow(
 /* =========================================================
    FILTROS
 ========================================================= */
-
 function getFilteredActivities() {
 
-  let result =
-    [...state.plannedActivities];
-
+  let result = [
+    ...state.plannedActivities
+  ];
 
   const phase =
-    $("filterPhase")?.value ||
-    "";
-
+    $("masterPhaseFilter")?.value || "";
 
   const manager =
-    $("filterManager")?.value ||
-    "";
-
+    $("masterManagerFilter")?.value || "";
 
   const employee =
-    $("filterEmployee")?.value ||
-    "";
-
+    $("masterEmployeeFilter")?.value || "";
 
   const period =
-    $("filterPeriod")?.value ||
-    "";
+    $("masterPeriodFilter")?.value || "";
 
 
   if (phase) {
 
-    result =
-      result.filter(
-        activity =>
-          activity.phase ===
-          phase
-      );
+    result = result.filter(
+      activity =>
+        activity.phase === phase
+    );
+
   }
 
 
   if (manager) {
 
-    result =
-      result.filter(
-        activity =>
-          activity.manager ===
-          manager
-      );
+    result = result.filter(
+      activity =>
+        activity.manager === manager
+    );
+
   }
 
 
   if (employee) {
 
-    result =
-      result.filter(
-        activity =>
-          activity.employees.some(
-            person =>
-              String(person.id) ===
-              String(employee)
-          )
-      );
+    result = result.filter(
+      activity =>
+        activity.employees.some(
+          person =>
+            String(person.id) ===
+            String(employee)
+        )
+    );
+
   }
 
 
-  if (period) {
+  if (period === "dia") {
 
-    result =
-      result.filter(
-        activity =>
-          activity.start <=
-            parseDate(period) &&
-          activity.end >=
-            parseDate(period)
-      );
+    const today =
+      dateOnly(new Date());
+
+    result = result.filter(
+      activity =>
+        parseDate(activity.start) <= today &&
+        parseDate(activity.end) >= today
+    );
+
+  }
+
+
+  if (period === "semana") {
+
+    const today =
+      dateOnly(new Date());
+
+    const weekStart =
+      startOfWeek(today);
+
+    const weekEnd =
+      addDays(weekStart, 6);
+
+    result = result.filter(
+      activity =>
+        parseDate(activity.start) <= weekEnd &&
+        parseDate(activity.end) >= weekStart
+    );
+
   }
 
 
   return result;
 }
-
 
 /* =========================================================
    FILTRO — FASE
@@ -2747,14 +2757,12 @@ function getFilteredActivities() {
 function populatePhaseFilter() {
 
   const select =
-    $("filterPhase");
+    $("masterPhaseFilter");
 
   if (!select) return;
 
-
   const current =
     select.value;
-
 
   const phases =
     [
@@ -2769,21 +2777,18 @@ function populatePhaseFilter() {
     ];
 
 
-  select.innerHTML =
-    `
-      <option value="">
-        Todas las fases
-      </option>
-    `;
+  select.innerHTML = `
+    <option value="">
+      Todas las fases
+    </option>
+  `;
 
 
   phases.forEach(
     phase => {
 
       const option =
-        document.createElement(
-          "option"
-        );
+        document.createElement("option");
 
       option.value =
         phase;
@@ -2794,6 +2799,7 @@ function populatePhaseFilter() {
       select.appendChild(
         option
       );
+
     }
   );
 
@@ -2801,8 +2807,6 @@ function populatePhaseFilter() {
   select.value =
     current;
 }
-
-
 /* =========================================================
    FILTRO — ENCARGADO
 ========================================================= */
@@ -2810,14 +2814,12 @@ function populatePhaseFilter() {
 function populateManagerFilter() {
 
   const select =
-    $("filterManager");
+    $("masterManagerFilter");
 
   if (!select) return;
 
-
   const current =
     select.value;
-
 
   const managers =
     [
@@ -2832,21 +2834,18 @@ function populateManagerFilter() {
     ];
 
 
-  select.innerHTML =
-    `
-      <option value="">
-        Todos los encargados
-      </option>
-    `;
+  select.innerHTML = `
+    <option value="">
+      Todos los encargados
+    </option>
+  `;
 
 
   managers.forEach(
     manager => {
 
       const option =
-        document.createElement(
-          "option"
-        );
+        document.createElement("option");
 
       option.value =
         manager;
@@ -2857,6 +2856,7 @@ function populateManagerFilter() {
       select.appendChild(
         option
       );
+
     }
   );
 
@@ -2873,30 +2873,26 @@ function populateManagerFilter() {
 function populateEmployeeFilter() {
 
   const select =
-    $("filterEmployee");
+    $("masterEmployeeFilter");
 
   if (!select) return;
-
 
   const current =
     select.value;
 
 
-  select.innerHTML =
-    `
-      <option value="">
-        Todos los empleados
-      </option>
-    `;
+  select.innerHTML = `
+    <option value="">
+      Todos los empleados
+    </option>
+  `;
 
 
   state.employees.forEach(
     employee => {
 
       const option =
-        document.createElement(
-          "option"
-        );
+        document.createElement("option");
 
       option.value =
         employee.id ||
@@ -2908,6 +2904,7 @@ function populateEmployeeFilter() {
       select.appendChild(
         option
       );
+
     }
   );
 
@@ -2915,8 +2912,6 @@ function populateEmployeeFilter() {
   select.value =
     current;
 }
-
-
 /* =========================================================
    FILTRO — PERÍODO
 ========================================================= */
@@ -3072,37 +3067,27 @@ function printPlanner() {
 function setGanttView(view) {
 
   if (
-    view !== "days" &&
-    view !== "weeks"
+    view !== "semanas" &&
+    view !== "dias"
   ) {
     return;
   }
 
-
-  state.currentView =
-    view;
-
+  state.currentView = view;
 
   document
-    .querySelectorAll(
-      ".view-btn"
-    )
-    .forEach(
-      button => {
+    .querySelectorAll(".view-btn")
+    .forEach(button => {
 
-        button.classList.toggle(
-          "active",
-          button.dataset.view ===
-          view
-        );
-      }
-    );
+      button.classList.toggle(
+        "active",
+        button.dataset.ganttView === view
+      );
 
+    });
 
   renderGantt();
 }
-
-
 /* =========================================================
    NAVEGACIÓN
 ========================================================= */
@@ -3146,9 +3131,9 @@ function showView(viewName) {
 
 function bindEvents() {
 
-  /*
-   * ACTIVIDAD
-   */
+  /* =====================================================
+     ACTIVIDAD
+  ===================================================== */
 
   $("plannerActivity")
     ?.addEventListener(
@@ -3157,9 +3142,9 @@ function bindEvents() {
     );
 
 
-  /*
-   * DURACIÓN
-   */
+  /* =====================================================
+     DURACIÓN
+  ===================================================== */
 
   $("plannerDuration")
     ?.addEventListener(
@@ -3168,9 +3153,9 @@ function bindEvents() {
     );
 
 
-  /*
-   * AGREGAR
-   */
+  /* =====================================================
+     AGREGAR
+  ===================================================== */
 
   $("addPlannerActivity")
     ?.addEventListener(
@@ -3179,9 +3164,9 @@ function bindEvents() {
     );
 
 
-  /*
-   * LIMPIAR
-   */
+  /* =====================================================
+     LIMPIAR
+  ===================================================== */
 
   $("clearPlannerActivity")
     ?.addEventListener(
@@ -3190,14 +3175,12 @@ function bindEvents() {
     );
 
 
-  /*
-   * GANTT
-   */
+  /* =====================================================
+     CRONOGRAMA
+  ===================================================== */
 
   document
-    .querySelectorAll(
-      ".view-btn"
-    )
+    .querySelectorAll(".view-btn")
     .forEach(
       button => {
 
@@ -3205,21 +3188,20 @@ function bindEvents() {
           "click",
           () =>
             setGanttView(
-              button.dataset.view
+              button.dataset.ganttView
             )
         );
+
       }
     );
 
 
-  /*
-   * NAVEGACIÓN
-   */
+  /* =====================================================
+     NAVEGACIÓN
+  ===================================================== */
 
   document
-    .querySelectorAll(
-      ".nav-item"
-    )
+    .querySelectorAll(".nav-item")
     .forEach(
       button => {
 
@@ -3230,21 +3212,23 @@ function bindEvents() {
             showView(
               button.dataset.view
             );
+
           }
         );
+
       }
     );
 
 
-  /*
-   * FILTROS
-   */
+  /* =====================================================
+     FILTROS TABLA MAESTRA
+  ===================================================== */
 
   [
-    "filterPhase",
-    "filterManager",
-    "filterEmployee",
-    "filterPeriod"
+    "masterPhaseFilter",
+    "masterManagerFilter",
+    "masterEmployeeFilter",
+    "masterPeriodFilter"
   ].forEach(
     id => {
 
@@ -3253,32 +3237,43 @@ function bindEvents() {
           "change",
           renderMasterTable
         );
+
     }
   );
 
 
-  /*
-   * EXPORTAR
-   */
+  /* =====================================================
+     FILTRAR
+  ===================================================== */
 
-  $("exportTable")
+  $("filterMasterTable")
+    ?.addEventListener(
+      "click",
+      renderMasterTable
+    );
+
+
+  /* =====================================================
+     EXPORTAR
+  ===================================================== */
+
+  $("exportMasterTable")
     ?.addEventListener(
       "click",
       exportCSV
     );
 
 
-  /*
-   * IMPRIMIR
-   */
+  /* =====================================================
+     IMPRIMIR
+  ===================================================== */
 
-  $("printTable")
+  $("printMasterTable")
     ?.addEventListener(
       "click",
       printPlanner
     );
 }
-
 
 /* =========================================================
    INICIALIZACIÓN
