@@ -225,20 +225,16 @@ function setMode(
 }
 
 
-
 function updateYieldLabel() {
 
-  $("yieldSuffix")
-    .textContent =
-      `${unit()} / persona / día`;
+  $("yieldSuffix").textContent =
+    `${unit()} / persona / día`;
 
-  $("resourceLabel")
-    .textContent =
-      "personas";
+  $("resourceLabel").textContent =
+    resourceWord();
 
-  $("resourceLabel2")
-    .textContent =
-      "personas";
+  $("resourceLabel2").textContent =
+    resourceWord();
 }
 
 function updateQuantityStep() {
@@ -392,35 +388,38 @@ function loadActivity() {
     .value =
       item.unit || "";
 
-    const recommendation =
-    getRecommendedYield(item);
+const recommendation =
+  getRecommendedYield(item);
 
-  if (recommendation) {
+const activityName =
+  `Partida ${
+    item.item || "—"
+  } · ${
+    item.description || ""
+  }`;
 
-    $("yield").value =
-      recommendation.yield;
+if (recommendation) {
 
-    $("activityInfo").textContent =
-      `Partida ${
-        item.item || "—"
-      } · ${
-        item.description || ""
-      } · Rendimiento recomendado: ${
-        recommendation.yield
-      } ${
-        item.unit || recommendation.unit
-      }/persona/día · editable`;
+  $("yield").value =
+    recommendation.yield;
 
-  } else {
+  $("activityInfo").textContent =
+    `${activityName} · ` +
+    `Rendimiento sugerido: ` +
+    `${recommendation.yield} ` +
+    `${item.unit || recommendation.unit}/persona/día · ` +
+    `editable`;
 
-    $("activityInfo").textContent =
-      `Partida ${
-        item.item || "—"
-      } · ${
-        item.description || ""
-      } · No hay rendimiento de referencia. Ingresa uno manualmente.`;
+} else {
 
-  }
+  $("yield").value = "";
+
+  $("activityInfo").textContent =
+    `${activityName} · ` +
+    `Sin rendimiento de referencia. ` +
+    `Ingresa uno manualmente.`;
+
+}
 
 
   updateYieldLabel();
@@ -429,7 +428,329 @@ function loadActivity() {
 
 }
 
+/* =========================================================
+   BIBLIOTECA BASE DE RENDIMIENTOS
+   --------------------------------
+   Todos los rendimientos están expresados como:
+   UNIDADES DE PARTIDA / PERSONA / DÍA
 
+   Estos valores son REFERENCIALES.
+   El usuario puede editarlos y guardar su
+   rendimiento real de obra.
+========================================================= */
+
+const yieldLibrary = [
+
+  /* =========================
+     PISOS / CERÁMICOS
+  ========================= */
+
+  {
+    keywords: [
+      "porcelanato"
+    ],
+    unit: "m2",
+    yield: 4,
+    source: "referencia PUPR"
+  },
+
+  {
+    keywords: [
+      "ceramica",
+      "cerámica"
+    ],
+    unit: "m2",
+    yield: 8,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "zocalo",
+      "zócalo"
+    ],
+    unit: "ml",
+    yield: 20,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "junta"
+    ],
+    unit: "ml",
+    yield: 30,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     TABLAYESO / DIVISIONES
+  ========================= */
+
+  {
+    keywords: [
+      "tablayeso"
+    ],
+    unit: "m2",
+    yield: 12,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "densglass"
+    ],
+    unit: "m2",
+    yield: 10,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     PINTURA
+  ========================= */
+
+  {
+    keywords: [
+      "pintura"
+    ],
+    unit: "m2",
+    yield: 30,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "empaste",
+      "lijado"
+    ],
+    unit: "m2",
+    yield: 25,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     DEMOLICIONES
+  ========================= */
+
+  {
+    keywords: [
+      "demolicion de muro",
+      "demolición de muro"
+    ],
+    unit: "m2",
+    yield: 10,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "demolicion de drywall",
+      "demolición de drywall"
+    ],
+    unit: "m2",
+    yield: 20,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "demolicion",
+      "demolición"
+    ],
+    unit: "m2",
+    yield: 8,
+    source: "referencia general"
+  },
+
+
+  /* =========================
+     TIERRA / EXCAVACIÓN
+  ========================= */
+
+  {
+    keywords: [
+      "excavacion manual",
+      "excavación manual"
+    ],
+    unit: "m3",
+    yield: 1.5,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "excavacion para tuberias",
+      "excavación para tuberías"
+    ],
+    unit: "m3",
+    yield: 1.5,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "compactacion",
+      "compactación"
+    ],
+    unit: "m3",
+    yield: 10,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "relleno",
+      "relleno manual"
+    ],
+    unit: "m3",
+    yield: 10,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     PUERTAS / CARPINTERÍA
+  ========================= */
+
+  {
+    keywords: [
+      "puerta"
+    ],
+    unit: "c/u",
+    yield: 4,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "marco de puerta",
+      "marco puerta"
+    ],
+    unit: "c/u",
+    yield: 5,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     VIDRIO / VENTANAS
+  ========================= */
+
+  {
+    keywords: [
+      "ventana"
+    ],
+    unit: "c/u",
+    yield: 6,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "vidrio"
+    ],
+    unit: "m2",
+    yield: 5,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     ELÉCTRICA
+  ========================= */
+
+  {
+    keywords: [
+      "instalacion electrica",
+      "instalación eléctrica"
+    ],
+    unit: "c/u",
+    yield: 8,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "punto electrico",
+      "punto eléctrico"
+    ],
+    unit: "c/u",
+    yield: 8,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "tomacorriente"
+    ],
+    unit: "c/u",
+    yield: 8,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "interruptor"
+    ],
+    unit: "c/u",
+    yield: 8,
+    source: "referencia de producción"
+  },
+
+
+  /* =========================
+     HIDROSANITARIA
+  ========================= */
+
+  {
+    keywords: [
+      "instalacion hidrosanitaria",
+      "instalación hidrosanitaria"
+    ],
+    unit: "c/u",
+    yield: 5,
+    source: "referencia de producción"
+  },
+
+  {
+    keywords: [
+      "artefacto sanitario",
+      "aparato sanitario",
+      "sanitario"
+    ],
+    unit: "c/u",
+    yield: 5,
+    source: "referencia de producción"
+  }
+
+];
+
+
+/* =========================================================
+   BUSCAR RENDIMIENTO RECOMENDADO
+========================================================= */
+
+function getRecommendedYield(item) {
+
+  if (!item) {
+    return null;
+  }
+
+  const text =
+    `${item.description || ""}`.toLowerCase();
+
+  const match =
+    yieldLibrary.find(entry =>
+      entry.keywords.some(keyword =>
+        text.includes(keyword)
+      )
+    );
+
+  return match || null;
+}
 /* =========================================================
    CALCULADORA
 ========================================================= */
@@ -690,48 +1011,6 @@ const targetPeople =
      RESULTADO 3
   ===================================================== */
 
-  const resource =
-    resourceSingular();
-
-  $("requiredYield")
-    .textContent =
-      `${fmt(
-        requiredYield
-      )} ${currentUnit}/${resource}/día`;
-
-
-  $("requiredYieldDetail")
-    .textContent =
-      `Para terminar en ${
-        fmt(
-          targetDays
-        )
-      } días con ${
-        targetResources
-      } ${resourceWord()}.`;
-
-   function getRecommendedYield(item) {
-
-  if (!item) {
-    return null;
-  }
-
-  const text =
-    `${item.description || ""}`.toLowerCase();
-
-  const match =
-    yieldLibrary.find(entry =>
-      entry.keywords.some(keyword =>
-        text.includes(keyword)
-      )
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  return match;
-}
 
 
   /* =====================================================
@@ -767,11 +1046,15 @@ const targetPeople =
         ? r * peoplePerTeam
         : r;
 
-    const production =
-      R *
-      comparisonPeople *
-      E;
+const comparisonPeople =
+  state.mode === "team"
+    ? r * peoplePerTeam
+    : r;
 
+const production =
+  R *
+  comparisonPeople *
+  E;
 
     const duration =
       Q /
