@@ -124,6 +124,65 @@ function resourceWord() {
 function resourceSingular() {
   return "persona";
 }
+/* =========================================================
+   BIBLIOTECA DE RENDIMIENTOS
+========================================================= */
+
+const yieldLibrary = [
+  {
+    keywords: ["porcelanato"],
+    unit: "m2",
+    yield: 10
+  },
+  {
+    keywords: ["tablayeso"],
+    unit: "m2",
+    yield: 12
+  },
+  {
+    keywords: ["pintura"],
+    unit: "m2",
+    yield: 35
+  },
+  {
+    keywords: ["zocalo", "zócalo"],
+    unit: "ml",
+    yield: 25
+  },
+  {
+    keywords: ["junta"],
+    unit: "ml",
+    yield: 30
+  },
+  {
+    keywords: ["demolicion", "demolición"],
+    unit: "m2",
+    yield: 8
+  }
+];
+
+function getRecommendedYield(item) {
+
+  if (!item) {
+    return null;
+  }
+
+  const text =
+    `${item.description || ""}`.toLowerCase();
+
+  const match =
+    yieldLibrary.find(entry =>
+      entry.keywords.some(keyword =>
+        text.includes(keyword)
+      )
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  return match;
+}
 
 
 /* =========================================================
@@ -333,36 +392,35 @@ function loadActivity() {
     .value =
       item.unit || "";
 
-   const recommendation =
-  getRecommendedYield(item);
+    const recommendation =
+    getRecommendedYield(item);
 
-if (recommendation) {
+  if (recommendation) {
 
-  $("yield").value =
-    recommendation.yield;
+    $("yield").value =
+      recommendation.yield;
 
-  $("activityInfo").textContent =
-    `Rendimiento recomendado: ` +
-    `${recommendation.yield} ` +
-    `${item.unit || recommendation.unit}/persona/día · ` +
-    `editable`;
-
-} else {
-
-  $("activityInfo").textContent =
-    "No hay rendimiento de referencia. " +
-    "Ingresa uno manualmente.";
-
-}
-
-
-  $("activityInfo")
-    .textContent =
+    $("activityInfo").textContent =
       `Partida ${
         item.item || "—"
       } · ${
         item.description || ""
-      }`;
+      } · Rendimiento recomendado: ${
+        recommendation.yield
+      } ${
+        item.unit || recommendation.unit
+      }/persona/día · editable`;
+
+  } else {
+
+    $("activityInfo").textContent =
+      `Partida ${
+        item.item || "—"
+      } · ${
+        item.description || ""
+      } · No hay rendimiento de referencia. Ingresa uno manualmente.`;
+
+  }
 
 
   updateYieldLabel();
@@ -635,39 +693,6 @@ const targetPeople =
   const resource =
     resourceSingular();
 
-   const yieldLibrary = [
-  {
-    keywords: ["porcelanato"],
-    unit: "m2",
-    yield: 10
-  },
-  {
-    keywords: ["tablayeso"],
-    unit: "m2",
-    yield: 12
-  },
-  {
-    keywords: ["pintura"],
-    unit: "m2",
-    yield: 35
-  },
-  {
-    keywords: ["zocalo", "zócalo"],
-    unit: "ml",
-    yield: 25
-  },
-  {
-    keywords: ["junta"],
-    unit: "ml",
-    yield: 30
-  },
-  {
-    keywords: ["demolicion", "demolición"],
-    unit: "m2",
-    yield: 8
-  }
-];
-   
   $("requiredYield")
     .textContent =
       `${fmt(
@@ -737,9 +762,14 @@ const targetPeople =
     r++
   ) {
 
+      const comparisonPeople =
+      state.mode === "team"
+        ? r * peoplePerTeam
+        : r;
+
     const production =
       R *
-      r *
+      comparisonPeople *
       E;
 
 
@@ -885,11 +915,7 @@ function renderPresets() {
                 preset.yield
               )}
 
-              ${preset.unit}/${
-                preset.mode === "individual"
-                  ? "persona"
-                  : "equipo"
-              }/día
+             ${preset.unit}/persona/día
 
             </span>
 
