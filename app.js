@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const CONFIG = {
 
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbyptfYef7_HQK6yc2m79L7VOuH7bI0_-pydhOoEGMuFv8yrrxTiVpMDU7t86flpmnbB/exec",
+    "https://script.google.com/macros/s/AKfycbyFcxME_0KEzs6fDgpIM5BI1DXhzkR5PQk3wzJYN2Knh9u_cWwAvyDX2wr2eoq-E0Pw/exec",
 
 };
 
@@ -124,66 +124,6 @@ function resourceWord() {
 function resourceSingular() {
   return "persona";
 }
-/* =========================================================
-   BIBLIOTECA DE RENDIMIENTOS
-========================================================= */
-
-const yieldLibrary = [
-  {
-    keywords: ["porcelanato"],
-    unit: "m2",
-    yield: 10
-  },
-  {
-    keywords: ["tablayeso"],
-    unit: "m2",
-    yield: 12
-  },
-  {
-    keywords: ["pintura"],
-    unit: "m2",
-    yield: 35
-  },
-  {
-    keywords: ["zocalo", "zócalo"],
-    unit: "ml",
-    yield: 25
-  },
-  {
-    keywords: ["junta"],
-    unit: "ml",
-    yield: 30
-  },
-  {
-    keywords: ["demolicion", "demolición"],
-    unit: "m2",
-    yield: 8
-  }
-];
-
-function getRecommendedYield(item) {
-
-  if (!item) {
-    return null;
-  }
-
-  const text =
-    `${item.description || ""}`.toLowerCase();
-
-  const match =
-    yieldLibrary.find(entry =>
-      entry.keywords.some(keyword =>
-        text.includes(keyword)
-      )
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  return match;
-}
-
 
 /* =========================================================
    MODO DE TRABAJO
@@ -1041,12 +981,7 @@ const targetPeople =
     r++
   ) {
 
-      const comparisonPeople =
-      state.mode === "team"
-        ? r * peoplePerTeam
-        : r;
-
-const comparisonPeople =
+    const comparisonPeople =
   state.mode === "team"
     ? r * peoplePerTeam
     : r;
