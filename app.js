@@ -7,18 +7,8 @@ const $ = id => document.getElementById(id);
 
 const CONFIG = {
 
-  /*
-   * URL DEL WEB APP DE GOOGLE APPS SCRIPT
-   *
-   * Pega aquí la URL que termina en /exec.
-   *
-   * Ejemplo:
-   *
-   * https://script.google.com/macros/s/XXXXX/exec
-   */
-
   sheetsUrl:
-    "PEGA_AQUI_TU_URL_DEL_WEB_APP",
+    "https://script.google.com/macros/s/AKfycbylE-saezyClIN_1-2QPb6dpIJJQznPyLWQQtkVWHQLz9MlMK1fZ4N9_vBGmtUykMEJ/exec",
 
 };
 
