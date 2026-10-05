@@ -81,7 +81,6 @@ function fmt(
 
 }
 function formatItem(value) {
-
   if (
     value === null ||
     value === undefined ||
@@ -106,7 +105,6 @@ function formatItem(value) {
     .replace(/\.$/, "");
 }
 
-
 function unit() {
 
   return (
@@ -119,20 +117,12 @@ function unit() {
 
 
 function resourceWord() {
-
-  return state.mode === "individual"
-    ? "personas"
-    : "equipos";
-
+  return "personas";
 }
 
 
 function resourceSingular() {
-
-  return state.mode === "individual"
-    ? "persona"
-    : "equipo";
-
+  return "persona";
 }
 
 
@@ -176,28 +166,40 @@ function setMode(
 }
 
 
+
 function updateYieldLabel() {
-
-  const resource =
-    state.mode === "individual"
-      ? "persona"
-      : "equipo";
-
 
   $("yieldSuffix")
     .textContent =
-      `${unit()} / ${resource} / día`;
-
+      `${unit()} / persona / día`;
 
   $("resourceLabel")
     .textContent =
-      resourceWord();
-
+      "personas";
 
   $("resourceLabel2")
     .textContent =
-      resourceWord();
+      "personas";
+}
 
+function updateQuantityStep() {
+
+  const input = $("quantity");
+
+  if (!input) {
+    return;
+  }
+
+  const value =
+    Math.abs(parseFloat(input.value) || 0);
+
+  if (value < 1) {
+    input.step = "0.01";
+  } else if (value < 10) {
+    input.step = "0.1";
+  } else {
+    input.step = "1";
+  }
 }
 
 
@@ -331,6 +333,28 @@ function loadActivity() {
     .value =
       item.unit || "";
 
+   const recommendation =
+  getRecommendedYield(item);
+
+if (recommendation) {
+
+  $("yield").value =
+    recommendation.yield;
+
+  $("activityInfo").textContent =
+    `Rendimiento recomendado: ` +
+    `${recommendation.yield} ` +
+    `${item.unit || recommendation.unit}/persona/día · ` +
+    `editable`;
+
+} else {
+
+  $("activityInfo").textContent =
+    "No hay rendimiento de referencia. " +
+    "Ingresa uno manualmente.";
+
+}
+
 
   $("activityInfo")
     .textContent =
@@ -414,6 +438,15 @@ function calculate() {
         1
       )
     );
+   const activePeople =
+  state.mode === "team"
+    ? resources * peoplePerTeam
+    : resources;
+
+const targetPeople =
+  state.mode === "team"
+    ? targetResources * peoplePerTeam
+    : targetResources;
 
 
   const currentUnit =
@@ -474,10 +507,7 @@ function calculate() {
      PRODUCCIÓN DIARIA
   ===================================================== */
 
-  const dailyProduction =
-    R *
-    resources *
-    E;
+  const dailyProduction = R * activePeople * E;
 
 
   /* =====================================================
@@ -528,44 +558,33 @@ function calculate() {
      RESULTADO 1
   ===================================================== */
 
-  if (
-    state.mode === "individual"
-  ) {
+ if (state.mode === "individual") {
 
-    $("requiredResources")
-      .textContent =
-        `${required} personas`;
+  $("requiredResources").textContent =
+    `${required} personas`;
 
+  $("requiredDetail").textContent =
+    `${fmt(rawRequired)} personas calculadas → ` +
+    `se requieren ${required} personas`;
 
-    $("requiredDetail")
-      .textContent =
-        `${fmt(
-          rawRequired
-        )} personas → ` +
-        `se requieren ${required} personas`;
+} else {
 
-  } else {
+  const requiredTeams =
+    Math.ceil(
+      required / peoplePerTeam
+    );
 
-    const totalPeople =
-      required *
-      peoplePerTeam;
+  const totalPeople =
+    requiredTeams * peoplePerTeam;
 
+  $("requiredResources").textContent =
+    `${totalPeople} personas`;
 
-    $("requiredResources")
-      .textContent =
-        `${required} equipos`;
-
-
-    $("requiredDetail")
-      .textContent =
-        `${fmt(
-          rawRequired
-        )} equipos → ` +
-        `se requieren ${required} equipos ` +
-        `(${totalPeople} personas)`;
-
-  }
-
+  $("requiredDetail").textContent =
+    `${requiredTeams} equipos de ` +
+    `${peoplePerTeam} personas · ` +
+    `${totalPeople} personas en total`;
+}
 
   /* =====================================================
      RESULTADO 2
@@ -616,7 +635,39 @@ function calculate() {
   const resource =
     resourceSingular();
 
-
+   const yieldLibrary = [
+  {
+    keywords: ["porcelanato"],
+    unit: "m2",
+    yield: 10
+  },
+  {
+    keywords: ["tablayeso"],
+    unit: "m2",
+    yield: 12
+  },
+  {
+    keywords: ["pintura"],
+    unit: "m2",
+    yield: 35
+  },
+  {
+    keywords: ["zocalo", "zócalo"],
+    unit: "ml",
+    yield: 25
+  },
+  {
+    keywords: ["junta"],
+    unit: "ml",
+    yield: 30
+  },
+  {
+    keywords: ["demolicion", "demolición"],
+    unit: "m2",
+    yield: 8
+  }
+];
+   
   $("requiredYield")
     .textContent =
       `${fmt(
@@ -633,6 +684,29 @@ function calculate() {
       } días con ${
         targetResources
       } ${resourceWord()}.`;
+
+   function getRecommendedYield(item) {
+
+  if (!item) {
+    return null;
+  }
+
+  const text =
+    `${item.description || ""}`.toLowerCase();
+
+  const match =
+    yieldLibrary.find(entry =>
+      entry.keywords.some(keyword =>
+        text.includes(keyword)
+      )
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  return match;
+}
 
 
   /* =====================================================
@@ -1284,6 +1358,9 @@ $("clearActivity")
 
 
         calculate();
+         if (id === "quantity") {
+  updateQuantityStep();
+}
 
       }
     );
@@ -1303,5 +1380,5 @@ setMode(
 renderPresets();
 
 loadSheets();
-
+updateQuantityStep();
 calculate();
