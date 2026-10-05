@@ -11,11 +11,10 @@
 
 const CONFIG = {
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbzrfC8zweiYLxXxdiaVkQUkM9v7PLnYLAVkg_LWkEBhO5Q36K4eow9xxb-Y9IVKLhgR3g/exec",
+    "https://script.google.com/macros/s/AKfycbxseko6XFoI1Or9XB1G4sR9Or16CudEJC_ovRdJ-e7Lp6bhwlN34tquUZIYXjOJiyS3Qg/exec",
 
   projectStart: "2026-10-16"
 };
-
 
 /* =========================================================
    HELPERS
