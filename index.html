@@ -4,238 +4,851 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b0d10">
+
   <title>Planificador de Obra</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">PO</div>
-        <div>
-          <strong>Planificador</strong>
-          <span>de obra</span>
-        </div>
+
+<div class="app-shell">
+
+  <!-- ==================================================
+       SIDEBAR
+  =================================================== -->
+
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      <div class="brand-mark">
+        PO
       </div>
 
-      <nav class="nav">
-        <button class="nav-item active"><span class="nav-icon">⌁</span> Calculadora</button>
-        <button class="nav-item"><span class="nav-icon">▦</span> Partidas <b id="navCount">480</b></button>
-        <button class="nav-item"><span class="nav-icon">◫</span> Rendimientos</button>
-        <button class="nav-item"><span class="nav-icon">↗</span> Cronograma <em>Próximo</em></button>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <div class="project-mini">
-          <span class="mini-label">PROYECTO ACTUAL</span>
-          <strong>Grupo Q · Santa Elena</strong>
-          <span>Inicio 16 OCT 2026</span>
-        </div>
-        <div class="version">PLANIFICADOR <span>V1.0</span></div>
+      <div>
+        <strong>Planificador</strong>
+        <span>de obra</span>
       </div>
-    </aside>
 
-    <div class="main">
-      <header class="topbar">
-        <div class="mobile-brand"><span>PO</span> Planificador</div>
-        <div class="topbar-right">
-          <div class="connection"><i></i><span id="connectionText">Datos locales</span></div>
-          <button class="icon-btn" title="Configuración">⚙</button>
-        </div>
-      </header>
-
-      <main class="content">
-        <section class="hero">
-          <div>
-            <div class="kicker"><span></span> MOTOR DE PRODUCCIÓN</div>
-            <h1>Calcula antes de <i>programar.</i></h1>
-            <p>Prueba cantidades, rendimientos, personas o equipos y encuentra la combinación que necesitas para cumplir un plazo.</p>
-          </div>
-          <div class="hero-date">
-            <span>PLAZO DEL PROYECTO</span>
-            <strong>4 <small>MESES</small></strong>
-            <em>16 OCT 2026 → 16 FEB 2027</em>
-          </div>
-        </section>
-
-        <section class="workspace">
-          <div class="card activity-card">
-            <div class="card-title">
-              <div class="number">01</div>
-              <div>
-                <h2>Define la actividad</h2>
-                <p>Selecciona una partida o haz una prueba libre.</p>
-              </div>
-              <div class="live-dot">EDITABLE</div>
-            </div>
-
-            <div class="form-grid">
-              <label class="field activity-field">
-                <span>Actividad <small>opcional</small></span>
-                <div class="select-wrap">
-                  <select id="activitySelect">
-                    <option value="">Sin actividad — prueba libre</option>
-                  </select>
-                  <b>⌄</b>
-                </div>
-              </label>
-
-              <label class="field">
-                <span>Cantidad</span>
-                <div class="compound">
-                  <input id="quantity" type="number" min="0" step="0.01" value="95">
-                  <input id="unit" type="text" value="m²" maxlength="10">
-                </div>
-              </label>
-
-              <label class="field">
-                <span>Forma de trabajo</span>
-                <div class="segmented">
-                  <button id="individualBtn" class="selected" type="button">Individual</button>
-                  <button id="teamBtn" type="button">Equipo</button>
-                </div>
-              </label>
-
-              <label class="field">
-                <span>Rendimiento</span>
-                <div class="metric-input">
-                  <input id="yield" type="number" min="0.0001" step="0.01" value="15">
-                  <span id="yieldSuffix">m² / persona / día</span>
-                </div>
-              </label>
-
-              <label class="field">
-                <span>Eficiencia <small>ajuste</small></span>
-                <div class="metric-input compact">
-                  <input id="efficiency" type="number" min="1" max="100" step="1" value="100">
-                  <span>%</span>
-                </div>
-              </label>
-
-              <label class="field" id="peoplePerTeamWrap" hidden>
-                <span>Personas por equipo</span>
-                <div class="metric-input compact">
-                  <input id="peoplePerTeam" type="number" min="1" step="1" value="2">
-                  <span>pers.</span>
-                </div>
-              </label>
-            </div>
-
-            <div class="activity-footer">
-              <div class="source">
-                <span class="source-icon">⌁</span>
-                <span id="activityInfo">Prueba libre: escribe cualquier cantidad, unidad y rendimiento.</span>
-              </div>
-              <button class="text-btn" id="clearActivity">Limpiar selección <span>↗</span></button>
-            </div>
-          </div>
-
-          <div class="results-heading">
-            <div class="number">02</div>
-            <div>
-              <h2>Explora los escenarios</h2>
-              <p>Los tres sentidos se recalculan instantáneamente.</p>
-            </div>
-          </div>
-
-          <div class="scenario-grid">
-            <article class="result-card featured">
-              <div class="result-top">
-                <span class="result-tag">QUIERO TERMINAR EN</span>
-                <span class="arrow">→</span>
-              </div>
-              <div class="hero-input"><input id="targetDays" type="number" min="0.01" step="0.01" value="3"><span>días</span></div>
-              <div class="result-divider"></div>
-              <div class="result-label">Necesito</div>
-              <div class="result-big" id="requiredResources">3 personas</div>
-              <div class="result-note" id="requiredDetail">Cálculo: 2.11 → redondeado a 3 personas</div>
-            </article>
-
-            <article class="result-card">
-              <div class="result-top">
-                <span class="result-tag">TRABAJO CON</span>
-                <span class="arrow">→</span>
-              </div>
-              <div class="hero-input"><input id="resources" type="number" min="1" step="1" value="3"><span id="resourceLabel">personas</span></div>
-              <div class="result-divider"></div>
-              <div class="result-label">Termino en</div>
-              <div class="result-big" id="calculatedDays">2.11 días</div>
-              <div class="result-note" id="productionDetail">Producción: 45.00 m²/día</div>
-            </article>
-
-            <article class="result-card">
-              <div class="result-top">
-                <span class="result-tag">QUIERO USAR</span>
-                <span class="arrow">→</span>
-              </div>
-              <div class="hero-input"><input id="resourcesTarget" type="number" min="1" step="1" value="2"><span id="resourceLabel2">personas</span></div>
-              <div class="result-divider"></div>
-              <div class="result-label">Rendimiento requerido</div>
-              <div class="result-big smaller" id="requiredYield">9.50 m²/persona/día</div>
-              <div class="result-note">Producción mínima para cumplir el plazo.</div>
-            </article>
-          </div>
-
-          <section class="card comparison-card">
-            <div class="comparison-head">
-              <div>
-                <div class="section-eyebrow">COMPARACIÓN RÁPIDA</div>
-                <h2>¿Qué pasa si cambio el tamaño del recurso?</h2>
-              </div>
-              <div class="formula">
-                <span>PRODUCCIÓN</span>
-                <b>R × RECURSOS × EFICIENCIA</b>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Recursos</th><th>Producción diaria</th><th>Duración</th><th>Objetivo</th></tr>
-                </thead>
-                <tbody id="scenarioTable"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="bottom-grid">
-            <div class="card library-card">
-              <div class="card-title small-title">
-                <div class="number">03</div>
-                <div><h2>Biblioteca de rendimientos</h2><p>Guarda datos que quieras reutilizar.</p></div>
-              </div>
-              <div class="library-empty" id="presetList"></div>
-              <button class="outline-btn" id="savePreset">+ Guardar rendimiento actual</button>
-            </div>
-
-            <div class="card sheets-card">
-              <div class="card-title small-title">
-                <div class="number">04</div>
-                <div><h2>Fuente de partidas</h2><p>Conecta tu Google Sheet cuando quieras.</p></div>
-              </div>
-              <div class="sheets-status">
-                <span class="sheet-logo">G</span>
-                <div><strong id="sheetStatusTitle">Datos del Excel</strong><span id="sheetStatusText">480 partidas disponibles localmente.</span></div>
-              </div>
-              <input id="sheetsUrl" class="url-input" type="url" placeholder="URL del Web App de Apps Script">
-              <div class="sheet-actions">
-                <button class="dark-btn" id="loadSheets">Conectar Sheet</button>
-                <button class="outline-btn" id="loadLocal">Usar Excel</button>
-              </div>
-              <div class="tiny-status" id="status">Listo para conectar.</div>
-            </div>
-          </section>
-        </section>
-      </main>
-
-      <footer>
-        <span>PLANIFICADOR DE OBRA · MOTOR DE RENDIMIENTOS</span>
-        <span>Hecho para planificar con datos, no con intuición.</span>
-      </footer>
     </div>
+
+
+    <nav class="nav">
+
+      <button class="nav-item active">
+        <span class="nav-icon">⌁</span>
+        Calculadora
+      </button>
+
+      <button class="nav-item">
+        <span class="nav-icon">▦</span>
+        Partidas
+        <b id="navCount">0</b>
+      </button>
+
+      <button class="nav-item">
+        <span class="nav-icon">◫</span>
+        Rendimientos
+      </button>
+
+      <button class="nav-item">
+        <span class="nav-icon">↗</span>
+        Cronograma
+        <em>Próximo</em>
+      </button>
+
+    </nav>
+
+
+    <div class="sidebar-bottom">
+
+      <div class="project-mini">
+
+        <span class="mini-label">
+          PROYECTO ACTUAL
+        </span>
+
+        <strong>
+          Grupo Q · Santa Elena
+        </strong>
+
+        <span>
+          Inicio 16 OCT 2026
+        </span>
+
+      </div>
+
+      <div class="version">
+        PLANIFICADOR
+        <span>V1.0</span>
+      </div>
+
+    </div>
+
+  </aside>
+
+
+  <!-- ==================================================
+       MAIN
+  =================================================== -->
+
+  <div class="main">
+
+
+    <!-- TOPBAR -->
+
+    <header class="topbar">
+
+      <div class="mobile-brand">
+        <span>PO</span>
+        Planificador
+      </div>
+
+      <div class="topbar-right">
+
+        <div class="connection">
+
+          <i></i>
+
+          <span id="connectionText">
+            Conectando con Google Sheets
+          </span>
+
+        </div>
+
+        <button
+          class="icon-btn"
+          title="Configuración"
+        >
+          ⚙
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <!-- CONTENIDO -->
+
+    <main class="content">
+
+
+      <!-- ==================================================
+           HERO
+      =================================================== -->
+
+      <section class="hero">
+
+        <div>
+
+          <div class="kicker">
+            <span></span>
+            MOTOR DE PRODUCCIÓN
+          </div>
+
+          <h1>
+            Calcula antes de
+            <i>programar.</i>
+          </h1>
+
+          <p>
+            Selecciona una partida, define su rendimiento
+            y descubre cuántas personas, equipos o días
+            necesitas para ejecutarla.
+          </p>
+
+        </div>
+
+
+        <div class="hero-date">
+
+          <span>
+            PLAZO DEL PROYECTO
+          </span>
+
+          <strong>
+            4
+            <small>MESES</small>
+          </strong>
+
+          <em>
+            16 OCT 2026 → 16 FEB 2027
+          </em>
+
+        </div>
+
+      </section>
+
+
+      <!-- ==================================================
+           ACTIVIDAD
+      =================================================== -->
+
+      <section class="workspace">
+
+
+        <div class="card activity-card">
+
+
+          <div class="card-title">
+
+            <div class="number">
+              01
+            </div>
+
+            <div>
+
+              <h2>
+                Define la actividad
+              </h2>
+
+              <p>
+                Selecciona una partida del proyecto
+                o haz una prueba libre.
+              </p>
+
+            </div>
+
+            <div class="live-dot">
+              EDITABLE
+            </div>
+
+          </div>
+
+
+          <div class="form-grid">
+
+
+            <!-- ACTIVIDAD -->
+
+            <label class="field activity-field">
+
+              <span>
+                Actividad
+                <small>opcional</small>
+              </span>
+
+              <div class="select-wrap">
+
+                <select id="activitySelect">
+
+                  <option value="">
+                    Sin actividad — prueba libre
+                  </option>
+
+                </select>
+
+                <b>⌄</b>
+
+              </div>
+
+            </label>
+
+
+            <!-- CANTIDAD -->
+
+            <label class="field">
+
+              <span>
+                Cantidad
+              </span>
+
+              <div class="compound">
+
+                <input
+                  id="quantity"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="95"
+                >
+
+                <input
+                  id="unit"
+                  type="text"
+                  value="m²"
+                  maxlength="10"
+                >
+
+              </div>
+
+            </label>
+
+
+            <!-- FORMA DE TRABAJO -->
+
+            <label class="field">
+
+              <span>
+                Forma de trabajo
+              </span>
+
+              <div class="segmented">
+
+                <button
+                  id="individualBtn"
+                  class="selected"
+                  type="button"
+                >
+                  Individual
+                </button>
+
+                <button
+                  id="teamBtn"
+                  type="button"
+                >
+                  Equipo
+                </button>
+
+              </div>
+
+            </label>
+
+
+            <!-- RENDIMIENTO -->
+
+            <label class="field">
+
+              <span>
+                Rendimiento
+              </span>
+
+              <div class="metric-input">
+
+                <input
+                  id="yield"
+                  type="number"
+                  min="0.0001"
+                  step="0.01"
+                  value="15"
+                >
+
+                <span id="yieldSuffix">
+                  m² / persona / día
+                </span>
+
+              </div>
+
+            </label>
+
+
+            <!-- EFICIENCIA -->
+
+            <label class="field">
+
+              <span>
+                Eficiencia
+                <small>ajuste</small>
+              </span>
+
+              <div class="metric-input compact">
+
+                <input
+                  id="efficiency"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value="100"
+                >
+
+                <span>
+                  %
+                </span>
+
+              </div>
+
+            </label>
+
+
+            <!-- PERSONAS POR EQUIPO -->
+
+            <label
+              class="field"
+              id="peoplePerTeamWrap"
+              hidden
+            >
+
+              <span>
+                Personas por equipo
+              </span>
+
+              <div class="metric-input compact">
+
+                <input
+                  id="peoplePerTeam"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="2"
+                >
+
+                <span>
+                  pers.
+                </span>
+
+              </div>
+
+            </label>
+
+
+          </div>
+
+
+          <div class="activity-footer">
+
+            <div class="source">
+
+              <span class="source-icon">
+                ⌁
+              </span>
+
+              <span id="activityInfo">
+                Selecciona una partida para cargar
+                automáticamente su cantidad y unidad.
+              </span>
+
+            </div>
+
+
+            <button
+              class="text-btn"
+              id="clearActivity"
+            >
+              Limpiar selección
+              <span>↗</span>
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             ESCENARIOS
+        =================================================== -->
+
+        <div class="results-heading">
+
+          <div class="number">
+            02
+          </div>
+
+          <div>
+
+            <h2>
+              Explora los escenarios
+            </h2>
+
+            <p>
+              Cambia días, recursos o rendimiento
+              y observa cómo cambia el resultado.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="scenario-grid">
+
+
+          <!-- ESCENARIO 1 -->
+
+          <article class="result-card featured">
+
+            <div class="result-top">
+
+              <span class="result-tag">
+                QUIERO TERMINAR EN
+              </span>
+
+              <span class="arrow">
+                →
+              </span>
+
+            </div>
+
+
+            <div class="hero-input">
+
+              <input
+                id="targetDays"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value="3"
+              >
+
+              <span>
+                días
+              </span>
+
+            </div>
+
+
+            <div class="result-divider"></div>
+
+
+            <div class="result-label">
+              Necesito
+            </div>
+
+
+            <div
+              class="result-big"
+              id="requiredResources"
+            >
+              —
+            </div>
+
+
+            <div
+              class="result-note"
+              id="requiredDetail"
+            >
+              Calculando...
+            </div>
+
+          </article>
+
+
+          <!-- ESCENARIO 2 -->
+
+          <article class="result-card">
+
+            <div class="result-top">
+
+              <span class="result-tag">
+                TRABAJO CON
+              </span>
+
+              <span class="arrow">
+                →
+              </span>
+
+            </div>
+
+
+            <div class="hero-input">
+
+              <input
+                id="resources"
+                type="number"
+                min="1"
+                step="1"
+                value="3"
+              >
+
+              <span id="resourceLabel">
+                personas
+              </span>
+
+            </div>
+
+
+            <div class="result-divider"></div>
+
+
+            <div class="result-label">
+              Termino en
+            </div>
+
+
+            <div
+              class="result-big"
+              id="calculatedDays"
+            >
+              —
+            </div>
+
+
+            <div
+              class="result-note"
+              id="productionDetail"
+            >
+              Producción: —
+            </div>
+
+          </article>
+
+
+          <!-- ESCENARIO 3 -->
+
+          <article class="result-card">
+
+            <div class="result-top">
+
+              <span class="result-tag">
+                QUIERO USAR
+              </span>
+
+              <span class="arrow">
+                →
+              </span>
+
+            </div>
+
+
+            <div class="hero-input">
+
+              <input
+                id="resourcesTarget"
+                type="number"
+                min="1"
+                step="1"
+                value="2"
+              >
+
+              <span id="resourceLabel2">
+                personas
+              </span>
+
+            </div>
+
+
+            <div class="result-divider"></div>
+
+
+            <div class="result-label">
+              Rendimiento requerido
+            </div>
+
+
+            <div
+              class="result-big smaller"
+              id="requiredYield"
+            >
+              —
+            </div>
+
+
+            <div
+              class="result-note"
+              id="requiredYieldDetail"
+            >
+              Para cumplir el plazo indicado.
+            </div>
+
+          </article>
+
+        </div>
+
+
+        <!-- ==================================================
+             COMPARACIÓN
+        =================================================== -->
+
+        <section class="card comparison-card">
+
+          <div class="comparison-head">
+
+            <div>
+
+              <div class="section-eyebrow">
+                COMPARACIÓN RÁPIDA
+              </div>
+
+              <h2>
+                ¿Qué pasa si cambio los recursos?
+              </h2>
+
+            </div>
+
+            <div class="formula">
+
+              <span>
+                PRODUCCIÓN
+              </span>
+
+              <b>
+                R × RECURSOS × EFICIENCIA
+              </b>
+
+            </div>
+
+          </div>
+
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Recursos
+                  </th>
+
+                  <th>
+                    Producción diaria
+                  </th>
+
+                  <th>
+                    Duración
+                  </th>
+
+                  <th>
+                    Objetivo
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody
+                id="scenarioTable"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </section>
+
+
+        <!-- ==================================================
+             BOTTOM
+        =================================================== -->
+
+        <section class="bottom-grid">
+
+
+          <!-- BIBLIOTECA -->
+
+          <div class="card library-card">
+
+            <div class="card-title small-title">
+
+              <div class="number">
+                03
+              </div>
+
+              <div>
+
+                <h2>
+                  Biblioteca de rendimientos
+                </h2>
+
+                <p>
+                  Guarda datos que quieras reutilizar.
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div
+              class="library-empty"
+              id="presetList"
+            ></div>
+
+
+            <button
+              class="outline-btn"
+              id="savePreset"
+            >
+              + Guardar rendimiento actual
+            </button>
+
+          </div>
+
+
+          <!-- GOOGLE SHEETS -->
+
+          <div class="card sheets-card">
+
+            <div class="card-title small-title">
+
+              <div class="number">
+                04
+              </div>
+
+              <div>
+
+                <h2>
+                  Fuente de partidas
+                </h2>
+
+                <p>
+                  Partidas tomadas directamente
+                  de tu Google Sheet.
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div class="sheets-status">
+
+              <span class="sheet-logo">
+                G
+              </span>
+
+              <div>
+
+                <strong id="sheetStatusTitle">
+                  Google Sheets
+                </strong>
+
+                <span id="sheetStatusText">
+                  Conectando...
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <div
+              class="tiny-status"
+              id="status"
+            >
+              Conectando con plandeoferta...
+            </div>
+
+          </div>
+
+
+        </section>
+
+      </section>
+
+    </main>
+
+
+    <footer>
+
+      <span>
+        PLANIFICADOR DE OBRA · MOTOR DE RENDIMIENTOS
+      </span>
+
+      <span>
+        Hecho para planificar con datos,
+        no con intuición.
+      </span>
+
+    </footer>
+
   </div>
-  <script src="app.js"></script>
+
+</div>
+
+
+<script src="app.js"></script>
+
 </body>
 </html>
