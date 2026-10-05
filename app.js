@@ -1,53 +1,91 @@
 const $ = id => document.getElementById(id);
 
-const state = {
-  items: [],
-  mode: "individual",
-  presets: JSON.parse(
-    localStorage.getItem("obra_presets") || "[]"
-  )
+
+/* =========================================================
+   CONFIGURACIÓN
+========================================================= */
+
+const CONFIG = {
+
+  /*
+   * URL DEL WEB APP DE GOOGLE APPS SCRIPT
+   *
+   * Pega aquí la URL que termina en /exec.
+   *
+   * Ejemplo:
+   *
+   * https://script.google.com/macros/s/XXXXX/exec
+   */
+
+  sheetsUrl:
+    "PEGA_AQUI_TU_URL_DEL_WEB_APP",
+
 };
 
 
-/* =====================================================
-   CONFIGURACIÓN GOOGLE SHEETS
-   ===================================================== */
+/* =========================================================
+   ESTADO
+========================================================= */
 
-const GOOGLE_SHEET_ID =
-  "1ToUC11fXj4k0xfMG6kad6CirbohvMkX6IT95nuaP_FE";
+const state = {
 
-const GOOGLE_SHEET_NAME =
-  "plandeoferta";
+  items: [],
+
+  mode: "individual",
+
+  presets:
+    JSON.parse(
+      localStorage.getItem(
+        "obra_presets"
+      ) || "[]"
+    )
+
+};
 
 
-/* =====================================================
+/* =========================================================
    UTILIDADES
-   ===================================================== */
+========================================================= */
 
-function n(id, fallback = 0) {
+function n(
+  id,
+  fallback = 0
+) {
 
-  const element = $(id);
+  const element =
+    $(id);
 
   if (!element) {
     return fallback;
   }
 
   const value =
-    parseFloat(element.value);
+    parseFloat(
+      element.value
+    );
 
   return Number.isFinite(value)
     ? value
     : fallback;
+
 }
 
 
-function fmt(value, decimals = 2) {
+function fmt(
+  value,
+  decimals = 2
+) {
 
-  return Number(value).toLocaleString(
+  return Number(
+    value
+  ).toLocaleString(
     "es-SV",
     {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
+      minimumFractionDigits:
+        decimals,
+
+      maximumFractionDigits:
+        decimals
     }
   );
 
@@ -56,8 +94,11 @@ function fmt(value, decimals = 2) {
 
 function unit() {
 
-  return $("unit").value.trim() ||
-    "unidad";
+  return (
+    $("unit")
+      .value
+      .trim()
+  ) || "unidad";
 
 }
 
@@ -80,13 +121,16 @@ function resourceSingular() {
 }
 
 
-/* =====================================================
-   MODO INDIVIDUAL / EQUIPO
-   ===================================================== */
+/* =========================================================
+   MODO DE TRABAJO
+========================================================= */
 
-function setMode(mode) {
+function setMode(
+  mode
+) {
 
-  state.mode = mode;
+  state.mode =
+    mode;
 
 
   $("individualBtn")
@@ -105,8 +149,9 @@ function setMode(mode) {
     );
 
 
-  $("peoplePerTeamWrap").hidden =
-    mode !== "team";
+  $("peoplePerTeamWrap")
+    .hidden =
+      mode !== "team";
 
 
   updateYieldLabel();
@@ -118,29 +163,36 @@ function setMode(mode) {
 
 function updateYieldLabel() {
 
-  $("yieldSuffix").textContent =
-    `${unit()} / ${
-      state.mode === "individual"
-        ? "persona"
-        : "equipo"
-    } / día`;
+  const resource =
+    state.mode === "individual"
+      ? "persona"
+      : "equipo";
 
 
-  $("resourceLabel").textContent =
-    resourceWord();
+  $("yieldSuffix")
+    .textContent =
+      `${unit()} / ${resource} / día`;
 
 
-  $("resourceLabel2").textContent =
-    resourceWord();
+  $("resourceLabel")
+    .textContent =
+      resourceWord();
+
+
+  $("resourceLabel2")
+    .textContent =
+      resourceWord();
 
 }
 
 
-/* =====================================================
-   CARGAR PARTIDAS EN EL SELECTOR
-   ===================================================== */
+/* =========================================================
+   PARTIDAS
+========================================================= */
 
-function populate(items) {
+function populate(
+  items
+) {
 
   state.items =
     Array.isArray(items)
@@ -153,11 +205,18 @@ function populate(items) {
 
 
   select.innerHTML =
-    '<option value="">Sin actividad — prueba libre</option>';
+    `
+      <option value="">
+        Sin actividad — prueba libre
+      </option>
+    `;
 
 
   state.items.forEach(
-    (item, index) => {
+    (
+      item,
+      index
+    ) => {
 
       const option =
         document.createElement(
@@ -170,12 +229,19 @@ function populate(items) {
 
 
       option.textContent =
-        `${item.item || ""} — ${item.description || ""}` +
-        `${
-          item.quantity != null
-            ? ` · ${fmt(item.quantity)} ${item.unit || ""}`
+        `${item.item || ""} — ${
+          item.description || ""
+        }` +
+        (
+          item.quantity !== null &&
+          item.quantity !== undefined
+            ? ` · ${fmt(
+                item.quantity
+              )} ${
+                item.unit || ""
+              }`
             : ""
-        }`;
+        );
 
 
       select.appendChild(
@@ -186,30 +252,41 @@ function populate(items) {
   );
 
 
-  $("navCount").textContent =
-    state.items.length;
+  $("navCount")
+    .textContent =
+      state.items.length;
 
 
-  $("sheetStatusText").textContent =
-    `${state.items.length} partidas disponibles.`;
+  $("sheetStatusText")
+    .textContent =
+      `${state.items.length} partidas disponibles.`;
 
 }
 
 
-/* =====================================================
-   CARGAR ACTIVIDAD SELECCIONADA
-   ===================================================== */
+/* =========================================================
+   SELECCIONAR ACTIVIDAD
+========================================================= */
 
 function loadActivity() {
 
   const value =
-    $("activitySelect").value;
+    $("activitySelect")
+      .value;
 
 
-  if (value === "") {
+  /*
+   * Sin actividad:
+   * calculadora libre.
+   */
 
-    $("activityInfo").textContent =
-      "Prueba libre: escribe cualquier cantidad, unidad y rendimiento.";
+  if (
+    value === ""
+  ) {
+
+    $("activityInfo")
+      .textContent =
+        "Prueba libre: escribe cualquier cantidad, unidad y rendimiento.";
 
     return;
 
@@ -227,24 +304,35 @@ function loadActivity() {
   }
 
 
-  $("quantity").value =
-    item.quantity ?? "";
+  /*
+   * La partida del Sheet
+   * proporciona automáticamente:
+   *
+   * cantidad
+   * unidad
+   * descripción
+   * item
+   *
+   * El rendimiento NO se reemplaza.
+   */
+
+  $("quantity")
+    .value =
+      item.quantity ?? "";
 
 
-  $("unit").value =
-    item.unit || "";
+  $("unit")
+    .value =
+      item.unit || "";
 
 
-  $("activityInfo").textContent =
-    `${
-      item.section
-        ? item.section + " · "
-        : ""
-    }Partida ${
-      item.item || "—"
-    } · ${
-      item.description || ""
-    }`;
+  $("activityInfo")
+    .textContent =
+      `Partida ${
+        item.item || "—"
+      } · ${
+        item.description || ""
+      }`;
 
 
   updateYieldLabel();
@@ -254,45 +342,71 @@ function loadActivity() {
 }
 
 
-/* =====================================================
+/* =========================================================
    CALCULADORA
-   ===================================================== */
+========================================================= */
 
 function calculate() {
 
   const Q =
-    n("quantity");
+    n(
+      "quantity"
+    );
 
 
   const R =
-    n("yield");
+    n(
+      "yield"
+    );
 
 
   const E =
     Math.max(
       0.01,
-      n("efficiency", 100)
+      n(
+        "efficiency",
+        100
+      )
     ) / 100;
 
 
   const targetDays =
     Math.max(
       0.01,
-      n("targetDays", 1)
+      n(
+        "targetDays",
+        1
+      )
     );
 
 
   const resources =
     Math.max(
       1,
-      n("resources", 1)
+      n(
+        "resources",
+        1
+      )
     );
 
 
   const targetResources =
     Math.max(
       1,
-      n("resourcesTarget", 1)
+      n(
+        "resourcesTarget",
+        1
+      )
+    );
+
+
+  const peoplePerTeam =
+    Math.max(
+      1,
+      n(
+        "peoplePerTeam",
+        1
+      )
     );
 
 
@@ -300,28 +414,9 @@ function calculate() {
     unit();
 
 
-  const mode =
-    state.mode;
-
-
-  const resourceName =
-    resourceWord();
-
-
-  const resourceNameSingular =
-    resourceSingular();
-
-
-  const peoplePerTeam =
-    Math.max(
-      1,
-      n("peoplePerTeam", 1)
-    );
-
-
   /*
-   * Si no existe una cantidad o rendimiento,
-   * limpiamos los resultados.
+   * Sin cantidad o rendimiento:
+   * no podemos calcular.
    */
 
   if (
@@ -329,20 +424,39 @@ function calculate() {
     R <= 0
   ) {
 
-    $("requiredResources").textContent =
-      "—";
+    $("requiredResources")
+      .textContent =
+        "—";
 
 
-    $("calculatedDays").textContent =
-      "—";
+    $("requiredDetail")
+      .textContent =
+        "Ingresa cantidad y rendimiento.";
 
 
-    $("requiredYield").textContent =
-      "—";
+    $("calculatedDays")
+      .textContent =
+        "—";
 
 
-    $("scenarioTable").innerHTML =
-      "";
+    $("productionDetail")
+      .textContent =
+        "Producción: —";
+
+
+    $("requiredYield")
+      .textContent =
+        "—";
+
+
+    $("requiredYieldDetail")
+      .textContent =
+        "Ingresa cantidad, plazo y recursos.";
+
+
+    $("scenarioTable")
+      .innerHTML =
+        "";
 
 
     return;
@@ -350,11 +464,9 @@ function calculate() {
   }
 
 
-  /*
-   * PRODUCCIÓN DIARIA
-   *
-   * rendimiento × recursos × eficiencia
-   */
+  /* =====================================================
+     PRODUCCIÓN DIARIA
+  ===================================================== */
 
   const dailyProduction =
     R *
@@ -362,23 +474,18 @@ function calculate() {
     E;
 
 
-  /*
-   * ESCENARIO 2
-   *
-   * ¿Cuántos días necesito?
-   */
+  /* =====================================================
+     DÍAS CON LOS RECURSOS ACTUALES
+  ===================================================== */
 
   const days =
     Q /
     dailyProduction;
 
 
-  /*
-   * ESCENARIO 1
-   *
-   * ¿Cuántos recursos necesito
-   * para terminar en X días?
-   */
+  /* =====================================================
+     RECURSOS NECESARIOS
+  ===================================================== */
 
   const rawRequired =
     Q /
@@ -392,16 +499,15 @@ function calculate() {
   const required =
     Math.max(
       1,
-      Math.ceil(rawRequired)
+      Math.ceil(
+        rawRequired
+      )
     );
 
 
-  /*
-   * ESCENARIO 3
-   *
-   * ¿Qué rendimiento necesito
-   * con X recursos durante X días?
-   */
+  /* =====================================================
+     RENDIMIENTO NECESARIO
+  ===================================================== */
 
   const requiredYield =
     Q /
@@ -412,84 +518,120 @@ function calculate() {
     );
 
 
-  /*
-   * PERSONAS TOTALES CUANDO SE USA EQUIPO
-   */
-
-  const totalRequiredPeople =
-    mode === "team"
-      ? required *
-        peoplePerTeam
-      : required;
-
-
-  const activePeople =
-    mode === "team"
-      ? resources *
-        peoplePerTeam
-      : resources;
-
-
-  /* -----------------------------------------------
+  /* =====================================================
      RESULTADO 1
-     ----------------------------------------------- */
+  ===================================================== */
 
-  if (mode === "team") {
+  if (
+    state.mode === "individual"
+  ) {
 
-    $("requiredResources").textContent =
-      `${required} equipos · ${totalRequiredPeople} pers.`;
+    $("requiredResources")
+      .textContent =
+        `${required} personas`;
 
 
-    $("requiredDetail").textContent =
-      `${fmt(rawRequired)} equipos → ` +
-      `${required} equipos de ` +
-      `${peoplePerTeam} personas`;
+    $("requiredDetail")
+      .textContent =
+        `${fmt(
+          rawRequired
+        )} personas → ` +
+        `se requieren ${required} personas`;
 
   } else {
 
-    $("requiredResources").textContent =
-      `${required} personas`;
+    const totalPeople =
+      required *
+      peoplePerTeam;
 
 
-    $("requiredDetail").textContent =
-      `${fmt(rawRequired)} personas → ` +
-      `redondeado a ${required}`;
+    $("requiredResources")
+      .textContent =
+        `${required} equipos`;
+
+
+    $("requiredDetail")
+      .textContent =
+        `${fmt(
+          rawRequired
+        )} equipos → ` +
+        `se requieren ${required} equipos ` +
+        `(${totalPeople} personas)`;
 
   }
 
 
-  /* -----------------------------------------------
+  /* =====================================================
      RESULTADO 2
-     ----------------------------------------------- */
+  ===================================================== */
 
-  $("calculatedDays").textContent =
-    `${fmt(days)} días`;
-
-
-  $("productionDetail").textContent =
-    `Producción: ${fmt(
-      dailyProduction
-    )} ${currentUnit}/día` +
-    (
-      mode === "team"
-        ? ` · ${activePeople} personas`
-        : ""
-    );
+  $("calculatedDays")
+    .textContent =
+      `${fmt(
+        days
+      )} días`;
 
 
-  /* -----------------------------------------------
+  if (
+    state.mode === "individual"
+  ) {
+
+    $("productionDetail")
+      .textContent =
+        `Producción: ${
+          fmt(
+            dailyProduction
+          )
+        } ${currentUnit}/día`;
+
+  } else {
+
+    const totalPeople =
+      resources *
+      peoplePerTeam;
+
+
+    $("productionDetail")
+      .textContent =
+        `Producción: ${
+          fmt(
+            dailyProduction
+          )
+        } ${currentUnit}/día · ` +
+        `${totalPeople} personas`;
+
+  }
+
+
+  /* =====================================================
      RESULTADO 3
-     ----------------------------------------------- */
+  ===================================================== */
 
-  $("requiredYield").textContent =
-    `${fmt(requiredYield)} ` +
-    `${currentUnit}/` +
-    `${resourceNameSingular}/día`;
+  const resource =
+    resourceSingular();
 
 
-  /* =================================================
-     TABLA DE COMPARACIÓN
-     ================================================= */
+  $("requiredYield")
+    .textContent =
+      `${fmt(
+        requiredYield
+      )} ${currentUnit}/${resource}/día`;
+
+
+  $("requiredYieldDetail")
+    .textContent =
+      `Para terminar en ${
+        fmt(
+          targetDays
+        )
+      } días con ${
+        targetResources
+      } ${resourceWord()}.`;
+
+
+  /* =====================================================
+     COMPARACIÓN
+  ===================================================== */
 
   const rows = [];
 
@@ -497,12 +639,16 @@ function calculate() {
   const start =
     Math.max(
       1,
-      Math.floor(resources) - 2
+      Math.floor(
+        resources
+      ) - 2
     );
 
 
   const end =
-    Math.floor(resources) + 2;
+    Math.floor(
+      resources
+    ) + 2;
 
 
   for (
@@ -523,79 +669,95 @@ function calculate() {
 
 
     const difference =
-      targetDays
-        ? (
-            (
-              duration -
-              targetDays
-            ) /
-            targetDays
-          ) * 100
-        : 0;
+      (
+        (
+          duration -
+          targetDays
+        ) /
+        targetDays
+      ) *
+      100;
 
 
     let resourceText;
 
 
-    if (mode === "team") {
-
-      resourceText =
-        `${r} equipos · ` +
-        `${r * peoplePerTeam} pers.`;
-
-    } else {
+    if (
+      state.mode === "individual"
+    ) {
 
       resourceText =
         `${r} personas`;
 
+    } else {
+
+      resourceText =
+        `${r} equipos · ${
+          r *
+          peoplePerTeam
+        } pers.`;
+
     }
 
 
-    rows.push(`
-      <tr>
+    rows.push(
+      `
+        <tr>
 
-        <td>
-          <b>${resourceText}</b>
-        </td>
+          <td>
+            <b>
+              ${resourceText}
+            </b>
+          </td>
 
-        <td>
-          ${fmt(production)}
-          ${currentUnit}/día
-        </td>
+          <td>
+            ${fmt(
+              production
+            )}
+            ${currentUnit}/día
+          </td>
 
-        <td>
-          <b>${fmt(duration)} días</b>
-        </td>
+          <td>
+            <b>
+              ${fmt(
+                duration
+              )} días
+            </b>
+          </td>
 
-        <td class="${
-          duration <= targetDays
-            ? "good"
-            : "warn"
-        }">
-
-          ${
+          <td class="${
             duration <= targetDays
-              ? "✓ Cumple"
-              : `+${fmt(difference)}%`
-          }
+              ? "good"
+              : "warn"
+          }">
 
-        </td>
+            ${
+              duration <= targetDays
+                ? "✓ Cumple"
+                : `+${fmt(
+                    difference
+                  )}%`
+            }
 
-      </tr>
-    `);
+          </td>
+
+        </tr>
+      `
+    );
 
   }
 
 
-  $("scenarioTable").innerHTML =
-    rows.join("");
+  $("scenarioTable")
+    .innerHTML =
+      rows.join("");
 
 }
 
 
-/* =====================================================
-   RENDIMIENTOS GUARDADOS
-   ===================================================== */
+/* =========================================================
+   BIBLIOTECA DE RENDIMIENTOS
+========================================================= */
 
 function renderPresets() {
 
@@ -607,14 +769,14 @@ function renderPresets() {
     !state.presets.length
   ) {
 
-    box.innerHTML = `
-      <span class="muted">
-        Todavía no hay rendimientos guardados.
-        Guarda uno cuando encuentres un dato
-        que quieras reutilizar.
-      </span>
-    `;
-
+    box.innerHTML =
+      `
+        <span class="muted">
+          Todavía no hay rendimientos guardados.
+          Guarda uno cuando encuentres un dato
+          que quieras reutilizar.
+        </span>
+      `;
 
     return;
 
@@ -624,21 +786,26 @@ function renderPresets() {
   box.innerHTML =
     state.presets
       .map(
-        (preset, index) => `
+        (
+          preset,
+          index
+        ) => `
 
           <div class="preset">
 
             <span>
 
-              <b>${preset.name}</b>
+              <b>
+                ${preset.name}
+              </b>
 
               ·
 
-              ${fmt(preset.yield)}
+              ${fmt(
+                preset.yield
+              )}
 
-              ${preset.unit}/
-
-              ${
+              ${preset.unit}/${
                 preset.mode === "individual"
                   ? "persona"
                   : "equipo"
@@ -646,12 +813,10 @@ function renderPresets() {
 
             </span>
 
-
             <button
-              data-preset="${index}">
-
+              data-preset="${index}"
+            >
               Usar
-
             </button>
 
           </div>
@@ -679,12 +844,14 @@ function renderPresets() {
               ];
 
 
-            $("yield").value =
-              preset.yield;
+            $("yield")
+              .value =
+                preset.yield;
 
 
-            $("unit").value =
-              preset.unit;
+            $("unit")
+              .value =
+                preset.unit;
 
 
             setMode(
@@ -699,353 +866,381 @@ function renderPresets() {
 }
 
 
-/* =====================================================
+/* =========================================================
    GUARDAR RENDIMIENTO
-   ===================================================== */
+========================================================= */
 
-$("savePreset").onclick =
-  () => {
+$("savePreset")
+  .onclick =
+    () => {
 
-    const selected =
-      $("activitySelect")
-        .selectedOptions[0];
-
-
-    let defaultName =
-      "Rendimiento personalizado";
+      const selected =
+        $("activitySelect")
+          .selectedOptions[0];
 
 
-    if (
-      selected &&
-      $("activitySelect").value !== ""
-    ) {
-
-      defaultName =
-        selected.textContent
-          .split("—")
-          .slice(1)
-          .join("—")
-          .trim();
-
-    }
+      let defaultName =
+        "Rendimiento personalizado";
 
 
-    const name =
-      prompt(
-        "Nombre para este rendimiento:",
-        defaultName
+      if (
+        selected &&
+        $("activitySelect").value !== ""
+      ) {
+
+        defaultName =
+          selected.textContent
+            .split("—")
+            .slice(1)
+            .join("—")
+            .trim();
+
+      }
+
+
+      const name =
+        prompt(
+          "Nombre para este rendimiento:",
+          defaultName
+        );
+
+
+      if (!name) {
+        return;
+      }
+
+
+      state.presets.push({
+
+        name,
+
+        yield:
+          n(
+            "yield"
+          ),
+
+        unit:
+          unit(),
+
+        mode:
+          state.mode
+
+      });
+
+
+      localStorage.setItem(
+        "obra_presets",
+        JSON.stringify(
+          state.presets
+        )
       );
 
 
-    if (!name) {
-      return;
+      renderPresets();
+
+    };
+
+
+/* =========================================================
+   GOOGLE SHEETS
+========================================================= */
+
+function loadGoogleJSONP(
+  url
+) {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const callback =
+        `obraCallback_${
+          Date.now()
+        }`;
+
+
+      const script =
+        document.createElement(
+          "script"
+        );
+
+
+      const timeout =
+        setTimeout(
+          () => {
+
+            cleanup();
+
+            reject(
+              new Error(
+                "Tiempo de espera agotado."
+              )
+            );
+
+          },
+          15000
+        );
+
+
+      function cleanup() {
+
+        clearTimeout(
+          timeout
+        );
+
+
+        delete window[
+          callback
+        ];
+
+
+        script.remove();
+
+      }
+
+
+      window[
+        callback
+      ] =
+        data => {
+
+          cleanup();
+
+
+          if (
+            data?.ok === false
+          ) {
+
+            reject(
+              new Error(
+                data.error ||
+                "Error de Google Sheets."
+              )
+            );
+
+            return;
+
+          }
+
+
+          resolve(
+            data
+          );
+
+        };
+
+
+      script.src =
+        url.replace(
+          /\/+$/,
+          ""
+        ) +
+        (
+          url.includes("?")
+            ? "&"
+            : "?"
+        ) +
+        `callback=${callback}`;
+
+
+      script.onerror =
+        () => {
+
+          cleanup();
+
+          reject(
+            new Error(
+              "No se pudo acceder al Web App de Google Sheets."
+            )
+          );
+
+        };
+
+
+      document.body.appendChild(
+        script
+      );
+
     }
+  );
+
+}
 
 
-    state.presets.push({
-
-      name,
-
-      yield:
-        n("yield"),
-
-      unit:
-        unit(),
-
-      mode:
-        state.mode
-
-    });
-
-
-    localStorage.setItem(
-      "obra_presets",
-      JSON.stringify(
-        state.presets
-      )
-    );
-
-
-    renderPresets();
-
-  };
-
-
-/* =====================================================
-   GOOGLE SHEETS DIRECTO
-   ===================================================== */
-
-async function loadGoogleSheet() {
-
-  $("status").textContent =
-    "Cargando partidas desde Google Sheets…";
-
-
-  $("status").className =
-    "tiny-status";
-
-
-  /*
-   * Endpoint público de Google Visualization.
-   *
-   * No necesita Apps Script.
-   */
+async function loadSheets() {
 
   const url =
-    `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq` +
-    `?sheet=${encodeURIComponent(
-      GOOGLE_SHEET_NAME
-    )}` +
-    `&tqx=out:json`;
+    CONFIG.sheetsUrl;
+
+
+  if (
+    !url ||
+    url.includes(
+      "PEGA_AQUI"
+    )
+  ) {
+
+    $("status")
+      .textContent =
+        "Falta configurar la URL del Web App de Google Apps Script.";
+
+
+    $("status")
+      .className =
+        "tiny-status error";
+
+
+    return;
+
+  }
+
+
+  $("status")
+    .textContent =
+      "Conectando con plandeoferta…";
+
+
+  $("status")
+    .className =
+      "tiny-status";
 
 
   try {
 
-    const response =
-      await fetch(url);
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        "Google Sheets no respondió correctamente."
-      );
-
-    }
-
-
-    const text =
-      await response.text();
-
-
-    /*
-     * Google devuelve:
-     *
-     * google.visualization.Query.setResponse({...});
-     *
-     * Extraemos solamente el JSON.
-     */
-
-    const start =
-      text.indexOf("{");
-
-
-    const end =
-      text.lastIndexOf("}");
-
-
-    if (
-      start === -1 ||
-      end === -1
-    ) {
-
-      throw new Error(
-        "No se pudo interpretar la respuesta de Google Sheets."
-      );
-
-    }
-
-
-    const json =
-      JSON.parse(
-        text.substring(
-          start,
-          end + 1
-        )
+    const data =
+      await loadGoogleJSONP(
+        url
       );
 
 
     if (
-      !json.table ||
-      !json.table.rows
+      !Array.isArray(
+        data.items
+      )
     ) {
 
       throw new Error(
-        "La pestaña plandeoferta no contiene datos."
+        "La respuesta de Google Sheets no contiene partidas."
       );
 
     }
 
 
-    /*
-     * Convertimos las filas de Sheets
-     * al formato que utiliza la aplicación.
-     */
-
-    const items =
-      json.table.rows
-        .map(
-          row => {
-
-            const cells =
-              row.c || [];
-
-
-            const get =
-              index =>
-                cells[index]?.v ?? "";
-
-
-            return {
-
-              /*
-               * B = ITEM
-               */
-
-              item:
-                get(1),
-
-
-              /*
-               * C = DESCRIPCIÓN
-               */
-
-              description:
-                get(2),
-
-
-              /*
-               * D = CANTIDAD
-               */
-
-              quantity:
-                Number(
-                  String(
-                    get(3)
-                  )
-                  .replace(
-                    /,/g,
-                    ""
-                  )
-                ) || 0,
-
-
-              /*
-               * E = UNIDAD
-               */
-
-              unit:
-                get(4),
-
-
-              section:
-                ""
-
-            };
-
-          }
-        )
-        .filter(
-          item =>
-            item.description ||
-            item.item
-        );
-
-
-    /*
-     * Enviamos las partidas al selector.
-     */
-
-    populate(items);
-
-
-    /*
-     * Actualizamos estado visual.
-     */
-
-    $("connectionText").textContent =
-      "Google Sheets conectado";
-
-
-    $("sheetStatusTitle").textContent =
-      "Google Sheets";
-
-
-    $("sheetStatusText").textContent =
-      `${items.length} partidas cargadas desde plandeoferta.`;
-
-
-    $("status").textContent =
-      `Conectado · ${items.length} partidas cargadas.`;
-
-
-    $("status").className =
-      "tiny-status ok";
-
-
-    console.log(
-      "Partidas cargadas desde Google Sheets:",
-      items
+    populate(
+      data.items
     );
 
 
-  } catch (error) {
+    $("connectionText")
+      .textContent =
+        "Google Sheets conectado";
+
+
+    $("sheetStatusTitle")
+      .textContent =
+        "Google Sheets · plandeoferta";
+
+
+    $("sheetStatusText")
+      .textContent =
+        `${data.items.length} partidas cargadas.`;
+
+
+    $("status")
+      .textContent =
+        `Conectado · ${
+          data.items.length
+        } partidas cargadas.`;
+
+
+    $("status")
+      .className =
+        "tiny-status ok";
+
+
+  } catch (
+    error
+  ) {
 
     console.error(
-      "Error Google Sheets:",
       error
     );
 
 
-    $("status").textContent =
-      `Error al conectar Google Sheets: ${error.message}`;
+    $("connectionText")
+      .textContent =
+        "Error de conexión";
 
 
-    $("status").className =
-      "tiny-status error";
+    $("sheetStatusTitle")
+      .textContent =
+        "Google Sheets";
+
+
+    $("sheetStatusText")
+      .textContent =
+        "No se pudieron cargar las partidas.";
+
+
+    $("status")
+      .textContent =
+        error.message;
+
+
+    $("status")
+      .className =
+        "tiny-status error";
 
   }
 
 }
 
 
-/* =====================================================
-   BOTONES DE MODO
-   ===================================================== */
+/* =========================================================
+   EVENTOS
+========================================================= */
 
-$("individualBtn").onclick =
-  () => {
+$("individualBtn")
+  .onclick =
+    () => {
 
-    setMode(
-      "individual"
-    );
+      setMode(
+        "individual"
+      );
 
-  };
-
-
-$("teamBtn").onclick =
-  () => {
-
-    setMode(
-      "team"
-    );
-
-  };
+    };
 
 
-/* =====================================================
-   ACTIVIDAD
-   ===================================================== */
+$("teamBtn")
+  .onclick =
+    () => {
 
-$("activitySelect").onchange =
-  loadActivity;
+      setMode(
+        "team"
+      );
 
-
-$("clearActivity").onclick =
-  () => {
-
-    $("activitySelect").value =
-      "";
+    };
 
 
-    loadActivity();
+$("activitySelect")
+  .onchange =
+    loadActivity;
 
-  };
 
+$("clearActivity")
+  .onclick =
+    () => {
 
-/* =====================================================
-   INPUTS
-   ===================================================== */
+      $("activitySelect")
+        .value =
+          "";
+
+      loadActivity();
+
+    };
+
 
 [
   "quantity",
@@ -1091,24 +1286,16 @@ $("clearActivity").onclick =
 );
 
 
-/* =====================================================
-   INICIALIZACIÓN
-   ===================================================== */
+/* =========================================================
+   INICIO
+========================================================= */
 
 setMode(
   "individual"
 );
 
-
 renderPresets();
 
-
-/*
- * Carga directamente
- * desde TU Google Sheet.
- */
-
-loadGoogleSheet();
-
+loadSheets();
 
 calculate();
