@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const CONFIG = {
 
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbyn4NF4nZwmWY4kfVwwA7L9RXt3EMJFIozPcpXdv9EsaotZ1TCWygWtZ-H1L9i-sM2d/exec",
+    "https://script.google.com/macros/s/AKfycbyFcxME_0KEzs6fDgpIM5BI1DXhzkR5PQk3wzJYN2Knh9u_cWwAvyDX2wr2eoq-E0Pw/exec",
 
 };
 
@@ -23,12 +23,28 @@ const state = {
 
   mode: "individual",
 
-  presets:
-    JSON.parse(
-      localStorage.getItem(
-        "obra_presets"
-      ) || "[]"
-    )
+  presets: (() => {
+
+    try {
+
+      const saved =
+        JSON.parse(
+          localStorage.getItem(
+            "obra_presets"
+          ) || "[]"
+        );
+
+      return Array.isArray(saved)
+        ? saved
+        : [];
+
+    } catch {
+
+      return [];
+
+    }
+
+  })()
 
 };
 
@@ -80,30 +96,54 @@ function fmt(
   );
 
 }
-function formatItem(value) {
+
+
+function formatItem(
+  value
+) {
+
   if (
     value === null ||
     value === undefined ||
     value === ""
   ) {
+
     return "";
+
   }
 
-  const number = Number(value);
+  const number =
+    Number(value);
 
-  if (!Number.isFinite(number)) {
+  if (
+    !Number.isFinite(number)
+  ) {
+
     return String(value);
+
   }
 
-  if (Number.isInteger(number)) {
+  if (
+    Number.isInteger(number)
+  ) {
+
     return String(number);
+
   }
 
   return number
     .toFixed(2)
-    .replace(/0+$/, "")
-    .replace(/\.$/, "");
+    .replace(
+      /0+$/,
+      ""
+    )
+    .replace(
+      /\.$/,
+      ""
+    );
+
 }
+
 
 function unit() {
 
@@ -116,14 +156,143 @@ function unit() {
 }
 
 
+function normalizeText(
+  value = ""
+) {
+
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+
+}
+
+
+function normalizeUnit(
+  value = ""
+) {
+
+  const u =
+    normalizeText(value)
+      .replace(
+        /²/g,
+        "2"
+      )
+      .replace(
+        /³/g,
+        "3"
+      )
+      .replace(
+        /\./g,
+        ""
+      )
+      .replace(
+        /\s+/g,
+        ""
+      );
+
+  const aliases = {
+
+    "m2": "m2",
+
+    "m3": "m3",
+
+    "ml": "ml",
+
+    "mlineal": "ml",
+
+    "mlineales": "ml",
+
+    "cu": "c/u",
+
+    "c/u": "c/u",
+
+    "unidad": "c/u",
+
+    "un": "c/u",
+
+    "sg": "sg",
+
+    "sumaglobal": "sg"
+
+  };
+
+  return aliases[u] || u;
+
+}
+
+
+function unitsCompatible(
+  activityUnit,
+  recommendedUnit
+) {
+
+  return (
+    normalizeUnit(
+      activityUnit
+    ) ===
+    normalizeUnit(
+      recommendedUnit
+    )
+  );
+
+}
+
+
 function resourceWord() {
-  return "personas";
+
+  return state.mode === "team"
+    ? "equipos"
+    : "personas";
+
 }
 
 
 function resourceSingular() {
-  return "persona";
+
+  return state.mode === "team"
+    ? "equipo"
+    : "persona";
+
 }
+
+
+function escapeHtml(
+  value = ""
+) {
+
+  return String(value)
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
 
 /* =========================================================
    MODO DE TRABAJO
@@ -167,34 +336,58 @@ function setMode(
 
 function updateYieldLabel() {
 
-  $("yieldSuffix").textContent =
-    `${unit()} / persona / día`;
+  $("yieldSuffix")
+    .textContent =
+      `${unit()} / persona / día`;
 
-  $("resourceLabel").textContent =
-    resourceWord();
+  $("resourceLabel")
+    .textContent =
+      resourceWord();
 
-  $("resourceLabel2").textContent =
-    resourceWord();
+  $("resourceLabel2")
+    .textContent =
+      resourceWord();
+
 }
+
 
 function updateQuantityStep() {
 
-  const input = $("quantity");
+  const input =
+    $("quantity");
 
   if (!input) {
     return;
   }
 
   const value =
-    Math.abs(parseFloat(input.value) || 0);
+    Math.abs(
+      parseFloat(
+        input.value
+      ) || 0
+    );
 
-  if (value < 1) {
-    input.step = "0.01";
-  } else if (value < 10) {
-    input.step = "0.1";
+  if (
+    value < 1
+  ) {
+
+    input.step =
+      "0.01";
+
+  } else if (
+    value < 10
+  ) {
+
+    input.step =
+      "0.1";
+
   } else {
-    input.step = "1";
+
+    input.step =
+      "1";
+
   }
+
 }
 
 
@@ -206,9 +399,50 @@ function populate(
   items
 ) {
 
+  /*
+   * Solo aceptamos partidas reales:
+   *
+   * - descripción
+   * - cantidad
+   * - unidad
+   * - cantidad numérica
+   * - cantidad mayor que cero
+   *
+   * Los encabezados de sección quedan fuera.
+   */
+
   state.items =
     Array.isArray(items)
-      ? items
+
+      ? items.filter(
+          item =>
+
+            item &&
+
+            String(
+              item.description || ""
+            ).trim() &&
+
+            String(
+              item.unit || ""
+            ).trim() &&
+
+            String(
+              item.quantity ?? ""
+            ).trim() !== "" &&
+
+            Number.isFinite(
+              Number(
+                item.quantity
+              )
+            ) &&
+
+            Number(
+              item.quantity
+            ) > 0
+
+        )
+
       : [];
 
 
@@ -224,31 +458,116 @@ function populate(
     `;
 
 
+  /*
+   * Agrupamos por sección.
+   *
+   * Se utiliza Map para que cada sección
+   * aparezca una sola vez.
+   */
+
+  const groups =
+    new Map();
+
+
   state.items.forEach(
     (
       item,
       index
     ) => {
 
-      const option =
+      const section =
+        String(
+          item.section ||
+          "Sin sección"
+        ).trim() ||
+        "Sin sección";
+
+
+      if (
+        !groups.has(
+          section
+        )
+      ) {
+
+        groups.set(
+          section,
+          []
+        );
+
+      }
+
+
+      groups
+        .get(section)
+        .push({
+          item,
+          index
+        });
+
+    }
+  );
+
+
+  /*
+   * Creamos un <optgroup> por sección.
+   */
+
+  groups.forEach(
+    (
+      entries,
+      section
+    ) => {
+
+      const group =
         document.createElement(
-          "option"
+          "optgroup"
         );
 
 
-      option.value =
-        index;
+      group.label =
+        section;
 
-option.textContent =
-  `${formatItem(item.item)} — ${item.description}` +
-  `${item.quantity != null
-    ? ` · ${fmt(item.quantity)} ${item.unit || ""}`
-    : ""
-  }`;
+
+      entries.forEach(
+        ({
+          item,
+          index
+        }) => {
+
+          const option =
+            document.createElement(
+              "option"
+            );
+
+
+          option.value =
+            index;
+
+
+          option.textContent =
+            `${formatItem(
+              item.item
+            )} — ${
+              item.description
+            } · ${
+              fmt(
+                item.quantity
+              )
+            } ${
+              item.unit || ""
+            }`;
+
+
+          group.appendChild(
+            option
+          );
+
+        }
+      );
 
 
       select.appendChild(
-        option
+        group
       );
 
     }
@@ -262,7 +581,7 @@ option.textContent =
 
   $("sheetStatusText")
     .textContent =
-      `${state.items.length} partidas disponibles.`;
+      `${state.items.length} partidas disponibles en ${groups.size} secciones.`;
 
 }
 
@@ -279,22 +598,43 @@ function loadActivity() {
 
 
   /*
-   * Sin actividad:
-   * calculadora libre.
+   * SIN ACTIVIDAD
    */
 
   if (
     value === ""
   ) {
 
+    $("quantity")
+      .value =
+        "";
+
+    $("unit")
+      .value =
+        "";
+
+    $("yield")
+      .value =
+        "";
+
     $("activityInfo")
       .textContent =
         "Prueba libre: escribe cualquier cantidad, unidad y rendimiento.";
+
+    updateYieldLabel();
+
+    updateQuantityStep();
+
+    calculate();
 
     return;
 
   }
 
+
+  /*
+   * BUSCAR PARTIDA
+   */
 
   const item =
     state.items[
@@ -308,15 +648,7 @@ function loadActivity() {
 
 
   /*
-   * La partida del Sheet
-   * proporciona automáticamente:
-   *
-   * cantidad
-   * unidad
-   * descripción
-   * item
-   *
-   * El rendimiento NO se reemplaza.
+   * CARGAR DATOS DE LA PARTIDA
    */
 
   $("quantity")
@@ -328,332 +660,542 @@ function loadActivity() {
     .value =
       item.unit || "";
 
-const recommendation =
-  getRecommendedYield(item);
 
-const activityName =
-  `Partida ${
-    item.item || "—"
-  } · ${
-    item.description || ""
-  }`;
+  /*
+   * BUSCAR RENDIMIENTO
+   */
 
-if (recommendation) {
+  const recommendation =
+    getRecommendedYield(
+      item
+    );
 
-  $("yield").value =
-    recommendation.yield;
 
-  $("activityInfo").textContent =
-    `${activityName} · ` +
-    `Rendimiento sugerido: ` +
-    `${recommendation.yield} ` +
-    `${item.unit || recommendation.unit}/persona/día · ` +
-    `editable`;
+  const activityName =
+    `Partida ${
+      item.item || "—"
+    } · ${
+      item.description || ""
+    }`;
 
-} else {
 
-  $("yield").value = "";
+  const sectionText =
+    item.section
+      ? ` · ${item.section}`
+      : "";
 
-  $("activityInfo").textContent =
-    `${activityName} · ` +
-    `Sin rendimiento de referencia. ` +
-    `Ingresa uno manualmente.`;
 
-}
+  if (
+    recommendation
+  ) {
+
+    $("yield")
+      .value =
+        recommendation.yield;
+
+
+    $("activityInfo")
+      .textContent =
+        `${activityName}${sectionText} · ` +
+        `Rendimiento sugerido: ` +
+        `${recommendation.yield} ` +
+        `${item.unit || recommendation.unit}` +
+        `/persona/día · editable`;
+
+  } else {
+
+    /*
+     * Si no tenemos referencia,
+     * NO inventamos un rendimiento.
+     */
+
+    $("yield")
+      .value =
+        "";
+
+
+    $("activityInfo")
+      .textContent =
+        `${activityName}${sectionText} · ` +
+        `Sin rendimiento de referencia para ` +
+        `${item.unit || "esta unidad"}. ` +
+        `Ingresa uno manualmente.`;
+
+  }
 
 
   updateYieldLabel();
+
+  updateQuantityStep();
 
   calculate();
 
 }
 
+
 /* =========================================================
    BIBLIOTECA BASE DE RENDIMIENTOS
-   --------------------------------
-   Todos los rendimientos están expresados como:
-   UNIDADES DE PARTIDA / PERSONA / DÍA
-
-   Estos valores son REFERENCIALES.
-   El usuario puede editarlos y guardar su
-   rendimiento real de obra.
 ========================================================= */
+
+/*
+ * TODOS LOS RENDIMIENTOS:
+ *
+ * UNIDADES DE PARTIDA / PERSONA / DÍA
+ *
+ * Son REFERENCIALES y EDITABLES.
+ */
 
 const yieldLibrary = [
 
-  /* =========================
+  /* =======================================================
      PISOS / CERÁMICOS
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "porcelanato"
     ],
-    unit: "m2",
-    yield: 4,
-    source: "referencia PUPR"
+
+    unit:
+      "m2",
+
+    yield:
+      4,
+
+    source:
+      "referencia PUPR"
   },
+
 
   {
     keywords: [
       "ceramica",
       "cerámica"
     ],
-    unit: "m2",
-    yield: 8,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      8,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "zocalo",
       "zócalo"
     ],
-    unit: "ml",
-    yield: 20,
-    source: "referencia de producción"
+
+    unit:
+      "ml",
+
+    yield:
+      20,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "junta"
     ],
-    unit: "ml",
-    yield: 30,
-    source: "referencia de producción"
+
+    unit:
+      "ml",
+
+    yield:
+      30,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      TABLAYESO / DIVISIONES
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "tablayeso"
     ],
-    unit: "m2",
-    yield: 12,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      12,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "densglass"
     ],
-    unit: "m2",
-    yield: 10,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      10,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  {
+    keywords: [
+      "drywall"
+    ],
+
+    unit:
+      "m2",
+
+    yield:
+      12,
+
+    source:
+      "referencia de producción"
+  },
+
+
+  /* =======================================================
      PINTURA
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "pintura"
     ],
-    unit: "m2",
-    yield: 30,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      30,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "empaste",
       "lijado"
     ],
-    unit: "m2",
-    yield: 25,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      25,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      DEMOLICIONES
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "demolicion de muro",
       "demolición de muro"
     ],
-    unit: "m2",
-    yield: 10,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      10,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "demolicion de drywall",
       "demolición de drywall"
     ],
-    unit: "m2",
-    yield: 20,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      20,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "demolicion",
       "demolición"
     ],
-    unit: "m2",
-    yield: 8,
-    source: "referencia general"
+
+    unit:
+      "m2",
+
+    yield:
+      8,
+
+    source:
+      "referencia general"
   },
 
 
-  /* =========================
+  /* =======================================================
      TIERRA / EXCAVACIÓN
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "excavacion manual",
       "excavación manual"
     ],
-    unit: "m3",
-    yield: 1.5,
-    source: "referencia de producción"
+
+    unit:
+      "m3",
+
+    yield:
+      1.5,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "excavacion para tuberias",
       "excavación para tuberías"
     ],
-    unit: "m3",
-    yield: 1.5,
-    source: "referencia de producción"
+
+    unit:
+      "m3",
+
+    yield:
+      1.5,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "compactacion",
       "compactación"
     ],
-    unit: "m3",
-    yield: 10,
-    source: "referencia de producción"
+
+    unit:
+      "m3",
+
+    yield:
+      10,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "relleno",
       "relleno manual"
     ],
-    unit: "m3",
-    yield: 10,
-    source: "referencia de producción"
+
+    unit:
+      "m3",
+
+    yield:
+      10,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      PUERTAS / CARPINTERÍA
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "puerta"
     ],
-    unit: "c/u",
-    yield: 4,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      4,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "marco de puerta",
       "marco puerta"
     ],
-    unit: "c/u",
-    yield: 5,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      5,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      VIDRIO / VENTANAS
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "ventana"
     ],
-    unit: "c/u",
-    yield: 6,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      6,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "vidrio"
     ],
-    unit: "m2",
-    yield: 5,
-    source: "referencia de producción"
+
+    unit:
+      "m2",
+
+    yield:
+      5,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      ELÉCTRICA
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "instalacion electrica",
       "instalación eléctrica"
     ],
-    unit: "c/u",
-    yield: 8,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      8,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "punto electrico",
       "punto eléctrico"
     ],
-    unit: "c/u",
-    yield: 8,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      8,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "tomacorriente"
     ],
-    unit: "c/u",
-    yield: 8,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      8,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
       "interruptor"
     ],
-    unit: "c/u",
-    yield: 8,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      8,
+
+    source:
+      "referencia de producción"
   },
 
 
-  /* =========================
+  /* =======================================================
      HIDROSANITARIA
-  ========================= */
+  ======================================================= */
 
   {
     keywords: [
       "instalacion hidrosanitaria",
       "instalación hidrosanitaria"
     ],
-    unit: "c/u",
-    yield: 5,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      5,
+
+    source:
+      "referencia de producción"
   },
+
 
   {
     keywords: [
@@ -661,9 +1203,15 @@ const yieldLibrary = [
       "aparato sanitario",
       "sanitario"
     ],
-    unit: "c/u",
-    yield: 5,
-    source: "referencia de producción"
+
+    unit:
+      "c/u",
+
+    yield:
+      5,
+
+    source:
+      "referencia de producción"
   }
 
 ];
@@ -673,29 +1221,74 @@ const yieldLibrary = [
    BUSCAR RENDIMIENTO RECOMENDADO
 ========================================================= */
 
-function getRecommendedYield(item) {
+function getRecommendedYield(
+  item
+) {
 
   if (!item) {
     return null;
   }
 
-  const text =
-    `${item.description || ""}`.toLowerCase();
 
-  const match =
-    yieldLibrary.find(entry =>
-      entry.keywords.some(keyword =>
-        text.includes(keyword)
-      )
+  const text =
+    normalizeText(
+      item.description || ""
     );
 
-  return match || null;
+
+  /*
+   * Primero buscamos coincidencia
+   * por descripción Y unidad.
+   *
+   * Esto evita, por ejemplo,
+   * recomendar un rendimiento de
+   * m² para una partida c/u.
+   */
+
+  const compatibleMatch =
+    yieldLibrary.find(
+      entry =>
+
+        unitsCompatible(
+          item.unit,
+          entry.unit
+        ) &&
+
+        entry.keywords.some(
+          keyword =>
+            text.includes(
+              normalizeText(
+                keyword
+              )
+            )
+        )
+
+    );
+
+
+  if (
+    compatibleMatch
+  ) {
+
+    return compatibleMatch;
+
+  }
+
+
+  return null;
+
 }
+
+
 /* =========================================================
    CALCULADORA
 ========================================================= */
 
 function calculate() {
+
+  /*
+   * CANTIDAD
+   */
 
   const Q =
     n(
@@ -703,25 +1296,42 @@ function calculate() {
     );
 
 
+  /*
+   * RENDIMIENTO
+   *
+   * unidades / persona / día
+   */
+
   const R =
     n(
       "yield"
     );
 
 
+  /*
+   * EFICIENCIA
+   */
+
   const E =
     Math.max(
       0.01,
+
       n(
         "efficiency",
         100
       )
+
     ) / 100;
 
+
+  /*
+   * PLAZO OBJETIVO
+   */
 
   const targetDays =
     Math.max(
       0.01,
+
       n(
         "targetDays",
         1
@@ -729,9 +1339,20 @@ function calculate() {
     );
 
 
+  /*
+   * RECURSOS ACTUALES
+   *
+   * En individual:
+   * personas
+   *
+   * En equipo:
+   * equipos
+   */
+
   const resources =
     Math.max(
       1,
+
       n(
         "resources",
         1
@@ -739,9 +1360,14 @@ function calculate() {
     );
 
 
+  /*
+   * RECURSOS DEL ESCENARIO 3
+   */
+
   const targetResources =
     Math.max(
       1,
+
       n(
         "resourcesTarget",
         1
@@ -749,23 +1375,41 @@ function calculate() {
     );
 
 
+  /*
+   * PERSONAS POR EQUIPO
+   */
+
   const peoplePerTeam =
     Math.max(
       1,
+
       n(
         "peoplePerTeam",
         1
       )
     );
-   const activePeople =
-  state.mode === "team"
-    ? resources * peoplePerTeam
-    : resources;
 
-const targetPeople =
-  state.mode === "team"
-    ? targetResources * peoplePerTeam
-    : targetResources;
+
+  /*
+   * CONVERSIÓN A PERSONAS REALES
+   */
+
+  const activePeople =
+    state.mode === "team"
+
+      ? resources *
+        peoplePerTeam
+
+      : resources;
+
+
+  const targetPeople =
+    state.mode === "team"
+
+      ? targetResources *
+        peoplePerTeam
+
+      : targetResources;
 
 
   const currentUnit =
@@ -773,8 +1417,8 @@ const targetPeople =
 
 
   /*
-   * Sin cantidad o rendimiento:
-   * no podemos calcular.
+   * SI NO TENEMOS CANTIDAD
+   * O RENDIMIENTO, NO CALCULAMOS.
    */
 
   if (
@@ -822,25 +1466,36 @@ const targetPeople =
   }
 
 
-  /* =====================================================
+  /* =======================================================
      PRODUCCIÓN DIARIA
-  ===================================================== */
+  ======================================================= */
 
-  const dailyProduction = R * activePeople * E;
+  const dailyProduction =
+    R *
+    activePeople *
+    E;
 
 
-  /* =====================================================
+  /* =======================================================
      DÍAS CON LOS RECURSOS ACTUALES
-  ===================================================== */
+  ======================================================= */
 
   const days =
     Q /
     dailyProduction;
 
 
-  /* =====================================================
+  /* =======================================================
      RECURSOS NECESARIOS
-  ===================================================== */
+  ======================================================= */
+
+  /*
+   * Personas necesarias:
+   *
+   * Q
+   * ────────────────
+   * R × días × E
+   */
 
   const rawRequired =
     Q /
@@ -851,7 +1506,7 @@ const targetPeople =
     );
 
 
-  const required =
+  const requiredPeople =
     Math.max(
       1,
       Math.ceil(
@@ -860,54 +1515,97 @@ const targetPeople =
     );
 
 
-  /* =====================================================
+  /* =======================================================
      RENDIMIENTO NECESARIO
-  ===================================================== */
+  ======================================================= */
+
+  /*
+   * IMPORTANTE:
+   *
+   * El rendimiento está definido
+   * por PERSONA / DÍA.
+   *
+   * Por eso en modo equipo primero
+   * convertimos equipos → personas.
+   */
 
   const requiredYield =
     Q /
     (
-      targetResources *
+      targetPeople *
       targetDays *
       E
     );
 
 
-  /* =====================================================
+  /* =======================================================
      RESULTADO 1
-  ===================================================== */
+  ======================================================= */
 
- if (state.mode === "individual") {
+  if (
+    state.mode === "individual"
+  ) {
 
-  $("requiredResources").textContent =
-    `${required} personas`;
+    $("requiredResources")
+      .textContent =
+        `${requiredPeople} ${
+          requiredPeople === 1
+            ? "persona"
+            : "personas"
+        }`;
 
-  $("requiredDetail").textContent =
-    `${fmt(rawRequired)} personas calculadas → ` +
-    `se requieren ${required} personas`;
 
-} else {
+    $("requiredDetail")
+      .textContent =
+        `${fmt(
+          rawRequired
+        )} personas calculadas → ` +
+        `se requieren ${requiredPeople} personas`;
 
-  const requiredTeams =
-    Math.ceil(
-      required / peoplePerTeam
-    );
+  } else {
 
-  const totalPeople =
-    requiredTeams * peoplePerTeam;
+    /*
+     * En modo equipo redondeamos
+     * hacia arriba el número de equipos.
+     */
 
-  $("requiredResources").textContent =
-    `${totalPeople} personas`;
+    const requiredTeams =
+      Math.ceil(
+        requiredPeople /
+        peoplePerTeam
+      );
 
-  $("requiredDetail").textContent =
-    `${requiredTeams} equipos de ` +
-    `${peoplePerTeam} personas · ` +
-    `${totalPeople} personas en total`;
-}
 
-  /* =====================================================
+    const totalPeople =
+      requiredTeams *
+      peoplePerTeam;
+
+
+    $("requiredResources")
+      .textContent =
+        `${requiredTeams} ${
+          requiredTeams === 1
+            ? "equipo"
+            : "equipos"
+        }`;
+
+
+    $("requiredDetail")
+      .textContent =
+        `${requiredTeams} ${
+          requiredTeams === 1
+            ? "equipo"
+            : "equipos"
+        } de ` +
+        `${peoplePerTeam} personas · ` +
+        `${totalPeople} personas en total`;
+
+  }
+
+
+  /* =======================================================
      RESULTADO 2
-  ===================================================== */
+  ======================================================= */
 
   $("calculatedDays")
     .textContent =
@@ -926,7 +1624,9 @@ const targetPeople =
           fmt(
             dailyProduction
           )
-        } ${currentUnit}/día`;
+        } ${
+          currentUnit
+        }/día`;
 
   } else {
 
@@ -941,24 +1641,70 @@ const targetPeople =
           fmt(
             dailyProduction
           )
-        } ${currentUnit}/día · ` +
+        } ${
+          currentUnit
+        }/día · ` +
         `${totalPeople} personas`;
 
   }
 
 
-  /* =====================================================
+  /* =======================================================
      RESULTADO 3
-  ===================================================== */
+  ======================================================= */
+
+  $("requiredYield")
+    .textContent =
+      `${fmt(
+        requiredYield
+      )} ${
+        currentUnit
+      }/persona/día`;
 
 
+  $("requiredYieldDetail")
+    .textContent =
+      state.mode === "team"
 
-  /* =====================================================
+        ? `${targetResources} ${
+            targetResources === 1
+              ? "equipo"
+              : "equipos"
+          } · ${
+            targetPeople
+          } personas · ${
+            fmt(
+              targetDays
+            )
+          } días objetivo.`
+
+        : `${targetPeople} ${
+            targetPeople === 1
+              ? "persona"
+              : "personas"
+          } · ${
+            fmt(
+              targetDays
+            )
+          } días objetivo.`;
+
+
+  /* =======================================================
      COMPARACIÓN
-  ===================================================== */
+  ======================================================= */
 
   const rows = [];
 
+
+  /*
+   * Mostramos:
+   *
+   * recursos -2
+   * recursos -1
+   * recursos
+   * recursos +1
+   * recursos +2
+   */
 
   const start =
     Math.max(
@@ -981,20 +1727,42 @@ const targetPeople =
     r++
   ) {
 
-    const comparisonPeople =
-  state.mode === "team"
-    ? r * peoplePerTeam
-    : r;
+    /*
+     * Convertimos equipos a personas
+     * cuando corresponde.
+     */
 
-const production =
-  R *
-  comparisonPeople *
-  E;
+    const comparisonPeople =
+      state.mode === "team"
+
+        ? r *
+          peoplePerTeam
+
+        : r;
+
+
+    /*
+     * Producción diaria
+     */
+
+    const production =
+      R *
+      comparisonPeople *
+      E;
+
+
+    /*
+     * Duración
+     */
 
     const duration =
       Q /
       production;
 
+
+    /*
+     * Diferencia contra objetivo
+     */
 
     const difference =
       (
@@ -1015,12 +1783,20 @@ const production =
     ) {
 
       resourceText =
-        `${r} personas`;
+        `${r} ${
+          r === 1
+            ? "persona"
+            : "personas"
+        }`;
 
     } else {
 
       resourceText =
-        `${r} equipos · ${
+        `${r} ${
+          r === 1
+            ? "equipo"
+            : "equipos"
+        } · ${
           r *
           peoplePerTeam
         } pers.`;
@@ -1061,10 +1837,13 @@ const production =
 
             ${
               duration <= targetDays
+
                 ? "✓ Cumple"
+
                 : `+${fmt(
                     difference
                   )}%`
+
             }
 
           </td>
@@ -1117,35 +1896,44 @@ function renderPresets() {
         (
           preset,
           index
-        ) => `
+        ) =>
 
-          <div class="preset">
+          `
 
-            <span>
+            <div class="preset">
 
-              <b>
-                ${preset.name}
-              </b>
+              <span>
 
-              ·
+                <b>
+                  ${escapeHtml(
+                    preset.name
+                  )}
+                </b>
 
-              ${fmt(
-                preset.yield
-              )}
+                ·
 
-             ${preset.unit}/persona/día
+                ${fmt(
+                  preset.yield
+                )}
 
-            </span>
+                ${
+                  escapeHtml(
+                    preset.unit
+                  )
+                }/persona/día
 
-            <button
-              data-preset="${index}"
-            >
-              Usar
-            </button>
+              </span>
 
-          </div>
+              <button
+                data-preset="${index}"
+              >
+                Usar
+              </button>
 
-        `
+            </div>
+
+          `
+
       )
       .join("");
 
@@ -1168,6 +1956,11 @@ function renderPresets() {
               ];
 
 
+            if (!preset) {
+              return;
+            }
+
+
             $("yield")
               .value =
                 preset.yield;
@@ -1179,8 +1972,14 @@ function renderPresets() {
 
 
             setMode(
-              preset.mode
+              preset.mode ||
+              "individual"
             );
+
+
+            updateYieldLabel();
+
+            calculate();
 
           };
 
@@ -1197,6 +1996,25 @@ function renderPresets() {
 $("savePreset")
   .onclick =
     () => {
+
+      const yieldValue =
+        n(
+          "yield"
+        );
+
+
+      if (
+        yieldValue <= 0
+      ) {
+
+        alert(
+          "Ingresa un rendimiento válido antes de guardarlo."
+        );
+
+        return;
+
+      }
+
 
       const selected =
         $("activitySelect")
@@ -1236,12 +2054,11 @@ $("savePreset")
 
       state.presets.push({
 
-        name,
+        name:
+          name.trim(),
 
         yield:
-          n(
-            "yield"
-          ),
+          yieldValue,
 
         unit:
           unit(),
@@ -1423,7 +2240,7 @@ async function loadSheets() {
 
   $("status")
     .textContent =
-      "Conectando con plandeoferta…";
+      "Conectando con PLAN DE OFERTA…";
 
 
   $("status")
@@ -1464,7 +2281,7 @@ async function loadSheets() {
 
     $("sheetStatusTitle")
       .textContent =
-        "Google Sheets · plandeoferta";
+        "Google Sheets · PLAN DE OFERTA";
 
 
     $("sheetStatusText")
@@ -1601,10 +2418,16 @@ $("clearActivity")
         }
 
 
+        if (
+          id === "quantity"
+        ) {
+
+          updateQuantityStep();
+
+        }
+
+
         calculate();
-         if (id === "quantity") {
-  updateQuantityStep();
-}
 
       }
     );
@@ -1623,6 +2446,8 @@ setMode(
 
 renderPresets();
 
-loadSheets();
 updateQuantityStep();
+
 calculate();
+
+loadSheets();
