@@ -217,21 +217,12 @@ function populate(
       option.value =
         index;
 
-
-      option.textContent =
-        `${item.item || ""} — ${
-          item.description || ""
-        }` +
-        (
-          item.quantity !== null &&
-          item.quantity !== undefined
-            ? ` · ${fmt(
-                item.quantity
-              )} ${
-                item.unit || ""
-              }`
-            : ""
-        );
+option.textContent =
+  `${formatItem(item.item)} — ${item.description}` +
+  `${item.quantity != null
+    ? ` · ${fmt(item.quantity)} ${item.unit || ""}`
+    : ""
+  }`;
 
 
       select.appendChild(
