@@ -489,44 +489,25 @@ function normalizeActivity(raw) {
 
 function normalizeEmployee(raw) {
 
+  const read = (...names) => {
+    const wanted = names.map(name => normalize(name));
+
+    const entry =
+      Object.entries(raw || {}).find(
+        ([key]) =>
+          wanted.includes(
+            normalize(key)
+          )
+      );
+
+    return entry ? entry[1] : "";
+  };
+
   return {
-
-    id:
-      String(
-        raw.ID ??
-        raw.id ??
-        ""
-      ).trim(),
-
-    name:
-      String(
-        raw.NOMBRE ??
-        raw.nombre ??
-        raw.Nombre ??
-        raw["NOMBRE COMPLETO"] ??
-        ""
-      ).trim(),
-
-    trade:
-      String(
-        raw.OFICIO ??
-        raw.oficio ??
-        raw.Oficio ??
-        raw["OFICIO "] ??
-        raw["ESPECIALIDAD"] ??
-        raw["PUESTO"] ??
-        ""
-      ).trim(),
-
-    role:
-      String(
-        raw.ROL ??
-        raw.rol ??
-        raw.Rol ??
-        raw["CARGO"] ??
-        ""
-      ).trim()
-
+    id: String(read("ID")).trim(),
+    name: String(read("NOMBRE", "NOMBRE COMPLETO")).trim(),
+    trade: String(read("OFICIO", "ESPECIALIDAD", "PUESTO")).trim(),
+    role: String(read("ROL", "CARGO")).trim()
   };
 }
 
@@ -968,95 +949,94 @@ function findYield(activity) {
     return null;
   }
 
-
   const activityName =
-    normalize(
-      activity.name
+    normalize(activity.name);
+
+  const exactByUnit =
+    state.yields.find(item =>
+      unitsMatch(item.unit, activity.unit) &&
+      normalize(item.activity) === activityName &&
+      Number(item.yield) > 0
     );
 
+  if (exactByUnit) {
+    return exactByUnit;
+  }
 
-  let match =
-    state.yields.find(
-      item =>
-        unitsMatch(
+  const exact =
+    state.yields.find(item =>
+      normalize(item.activity) === activityName &&
+      Number(item.yield) > 0
+    );
+
+  if (exact) {
+    return exact;
+  }
+
+  const relatedByUnit =
+    state.yields.find(item => {
+
+      if (
+        !unitsMatch(
           item.unit,
           activity.unit
-        ) &&
-        normalize(
-          item.activity
-        ) ===
-        activityName
-    );
-
-
-  if (match) {
-    return match;
-  }
-
-
-  match =
-    state.yields.find(
-      item => {
-
-        if (
-          !unitsMatch(
-            item.unit,
-            activity.unit
-          )
-        ) {
-          return false;
-        }
-
-        const yieldName =
-          normalize(
-            item.activity
-          );
-
-        return (
-          activityName.includes(
-            yieldName
-          ) ||
-          yieldName.includes(
-            activityName
-          )
-        );
+        )
+      ) {
+        return false;
       }
-    );
 
+      if (Number(item.yield) <= 0) {
+        return false;
+      }
 
-  if (match) {
-    return match;
+      const yieldName =
+        normalize(item.activity);
+
+      return (
+        activityName.includes(yieldName) ||
+        yieldName.includes(activityName)
+      );
+    });
+
+  if (relatedByUnit) {
+    return relatedByUnit;
   }
 
+  const related =
+    state.yields.find(item => {
+
+      if (Number(item.yield) <= 0) {
+        return false;
+      }
+
+      const yieldName =
+        normalize(item.activity);
+
+      return (
+        activityName.includes(yieldName) ||
+        yieldName.includes(activityName)
+      );
+    });
+
+  if (related) {
+    return related;
+  }
 
   const words =
     activityName
       .split(" ")
-      .filter(
-        word =>
-          word.length >= 4
-      );
-
+      .filter(word => word.length >= 4);
 
   return (
-    state.yields.find(
-      item =>
-        unitsMatch(
-          item.unit,
-          activity.unit
-        ) &&
-        words.some(
-          word =>
-            normalize(
-              item.activity
-            ).includes(word)
-        )
-    ) ||
-    null
+    state.yields.find(item =>
+      Number(item.yield) > 0 &&
+      words.some(word =>
+        normalize(item.activity)
+          .includes(word)
+      )
+    ) || null
   );
 }
-
-
 function renderActivityInfo(
   activity = null,
   recommendation = null
@@ -1179,239 +1159,180 @@ function getSelectedEmployees() {
   );
 }
 
+function employeeSelectionKey(employee) {
+
+  return [
+    normalize(employee?.name || ""),
+    normalize(employee?.trade || ""),
+    normalize(employee?.role || ""),
+    normalize(employee?.id || "")
+  ].join("|");
+}
 
 function renderEmployeeSelector() {
 
-  const container =
-    $("plannerEmployees");
+  const container = $("plannerEmployees");
 
   if (!container) {
     return;
   }
 
-
   container.innerHTML = "";
 
-
-  const toolbar =
-    document.createElement(
-      "div"
-    );
-
-  toolbar.className =
-    "employee-selector-toolbar";
-
+  const toolbar = document.createElement("div");
+  toolbar.className = "employee-selector-toolbar";
 
   toolbar.innerHTML = `
+    <span>${state.selectedEmployees.length} seleccionado(s)</span>
 
-    <span>
-      ${state.selectedEmployees.length}
-      seleccionado(s)
-    </span>
-
-    <button
-      type="button"
-      id="selectAllEmployees"
-    >
+    <button type="button" id="selectAllEmployees">
       Seleccionar todos
     </button>
 
-    <button
-      type="button"
-      id="clearAllEmployees"
-    >
+    <button type="button" id="clearAllEmployees">
       Limpiar
     </button>
   `;
 
+  container.appendChild(toolbar);
 
-  container.appendChild(
-    toolbar
-  );
+  const list = document.createElement("div");
+  list.className = "employee-list";
 
-
-  const list =
-    document.createElement(
-      "div"
-    );
-
-  list.className =
-    "employee-list";
-
-
-  if (
-    !state.employees.length
-  ) {
-
+  if (!state.employees.length) {
     list.innerHTML =
-      `<span class="empty-selection">
-        No hay empleados cargados.
-      </span>`;
+      `<span class="empty-selection">No hay empleados cargados.</span>`;
 
-    container.appendChild(
-      list
-    );
-
+    container.appendChild(list);
     return;
   }
 
+  state.employees.forEach(employee => {
 
-  state.employees.forEach(
-    employee => {
+    const key = employeeSelectionKey(employee);
 
-      const label =
-        document.createElement(
-          "label"
-        );
+    const label = document.createElement("label");
+    label.className = "employee-option";
 
-      label.className =
-        "employee-option";
-
-
-      const checkbox =
-        document.createElement(
-          "input"
-        );
-
-      checkbox.type =
-        "checkbox";
-
-      checkbox.value =
-        employee.id || "";
-
-      checkbox.checked =
-        state.selectedEmployees.some(
-          item =>
-            String(
-              item.id
-            ) ===
-            String(
-              employee.id
-            )
-        );
-
-
-      checkbox.addEventListener(
-        "change",
-        () => {
-
-          if (
-            checkbox.checked
-          ) {
-
-            const exists =
-              state.selectedEmployees.some(
-                item =>
-                  String(
-                    item.id
-                  ) ===
-                  String(
-                    employee.id
-                  )
-              );
-
-
-            if (!exists) {
-
-              state.selectedEmployees.push(
-                employee
-              );
-            }
-
-          } else {
-
-            state.selectedEmployees =
-              state.selectedEmployees.filter(
-                item =>
-                  String(
-                    item.id
-                  ) !==
-                  String(
-                    employee.id
-                  )
-              );
-          }
-
-
-          renderEmployeeSelector();
-
-          calculatePlannerRequirement();
-        }
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked =
+      state.selectedEmployees.some(
+        item =>
+          employeeSelectionKey(item) === key
       );
 
+    checkbox.addEventListener("change", () => {
 
-      const preview = getPreviewRange();
-      const shift = $("plannerShift")?.value || "Diurno";
-      state._availabilityShift = shift;
-      const busy = preview && typeof window.employeeBusyAcrossProjects === "function"
-        ? window.employeeBusyAcrossProjects(employee.id, preview.start, preview.end, state.editingPlanId || "")
-        : false;
-      const initials = String(employee.name || "?").split(/\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join("").toUpperCase();
+      if (checkbox.checked) {
 
-      const avatar = document.createElement("span");
-      avatar.className = "employee-avatar";
-      avatar.textContent = initials || "?";
-
-      const text = document.createElement("span");
-      text.className = "employee-text";
-      text.innerHTML = `
-        <strong>${escapeHTML(employee.name)}</strong>
-        <small>${escapeHTML(employee.trade || employee.role || "Sin oficio")}</small>
-        <em class="employee-availability ${busy ? "busy" : "available"}">
-          <i></i>${preview ? (busy ? "Ocupado" : "Disponible") : "Disponibilidad al planificar"}
-        </em>
-      `;
-
-      label.appendChild(checkbox);
-      label.appendChild(avatar);
-      label.appendChild(text);
-
-      list.appendChild(
-        label
-      );
-    }
-  );
-
-
-  container.appendChild(
-    list
-  );
-
-
-  $("selectAllEmployees")
-    ?.addEventListener(
-      "click",
-      () => {
-
-        state.selectedEmployees =
-          state.employees.map(
-            employee => ({
-              ...employee
-            })
+        const exists =
+          state.selectedEmployees.some(
+            item =>
+              employeeSelectionKey(item) === key
           );
 
-        renderEmployeeSelector();
+        if (!exists) {
+          state.selectedEmployees.push(employee);
+        }
 
-        calculatePlannerRequirement();
-      }
-    );
-
-
-  $("clearAllEmployees")
-    ?.addEventListener(
-      "click",
-      () => {
+      } else {
 
         state.selectedEmployees =
-          [];
-
-        renderEmployeeSelector();
-
-        calculatePlannerRequirement();
+          state.selectedEmployees.filter(
+            item =>
+              employeeSelectionKey(item) !== key
+          );
       }
-    );
-}
 
+      renderEmployeeSelector();
+      calculatePlannerRequirement();
+    });
+
+    const preview = getPreviewRange();
+    const shift =
+      $("plannerShift")?.value || "Diurno";
+
+    state._availabilityShift = shift;
+
+    const busy =
+      preview &&
+      typeof window.employeeBusyAcrossProjects === "function"
+        ? window.employeeBusyAcrossProjects(
+            employee.id,
+            preview.start,
+            preview.end,
+            state.editingPlanId || ""
+          )
+        : false;
+
+    const initials =
+      String(employee.name || "?")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0])
+        .join("")
+        .toUpperCase();
+
+    const avatar = document.createElement("span");
+    avatar.className = "employee-avatar";
+    avatar.textContent = initials || "?";
+
+    const text = document.createElement("span");
+    text.className = "employee-text";
+
+    text.innerHTML = `
+      <strong>
+        ${escapeHTML(employee.name || "Sin nombre")}
+      </strong>
+
+      <small>
+        ${escapeHTML(
+          employee.trade ||
+          employee.role ||
+          "Sin oficio"
+        )}
+      </small>
+
+      <em class="employee-availability ${busy ? "busy" : "available"}">
+        <i></i>
+        ${preview
+          ? (busy ? "Ocupado" : "Disponible")
+          : "Disponible"}
+      </em>
+    `;
+
+    label.appendChild(checkbox);
+    label.appendChild(avatar);
+    label.appendChild(text);
+
+    list.appendChild(label);
+  });
+
+  container.appendChild(list);
+
+  $("selectAllEmployees")
+    ?.addEventListener("click", () => {
+
+      state.selectedEmployees =
+        state.employees.map(
+          employee => ({ ...employee })
+        );
+
+      renderEmployeeSelector();
+      calculatePlannerRequirement();
+    });
+
+  $("clearAllEmployees")
+    ?.addEventListener("click", () => {
+
+      state.selectedEmployees = [];
+
+      renderEmployeeSelector();
+      calculatePlannerRequirement();
+    });
+}
 
 function populateManagers() {
 
@@ -1709,54 +1630,61 @@ function clearActivityForm(
 /* =========================================================
    TURNO
 ========================================================= */
+function syncShiftButtons() {
+
+  const select = $("plannerShift");
+
+  if (!select) {
+    return;
+  }
+
+  document
+    .querySelectorAll(".shift-option")
+    .forEach(button => {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.shift === select.value
+      );
+    });
+}
+
 
 function injectShiftControl() {
 
-  if ($("plannerShift")) {
-    const select = $("plannerShift");
-    if (!select.querySelector('option[value="Ambos"]')) {
-      select.insertAdjacentHTML("beforeend", '<option value="Ambos">☀️🌙 Ambos · 09:00–24:00</option>');
-    }
+  const select = $("plannerShift");
+
+  if (!select) {
     return;
   }
-
-
-  const durationField =
-    $("plannerDuration")
-      ?.closest(".field");
-
-
-  if (!durationField) {
-    return;
-  }
-
 
   const field =
-    document.createElement(
-      "label"
-    );
+    select.closest(".field");
 
+  if (!field) {
+    return;
+  }
 
-  field.className =
-    "field";
+  let control =
+    field.querySelector(".shift-control");
 
+  if (!control) {
 
-  field.innerHTML = `
+    control =
+      document.createElement("div");
 
-    <span>
-      Turno
-    </span>
+    control.className =
+      "shift-control";
 
-    <div
-      class="shift-control"
-    >
-
+    control.innerHTML = `
       <button
         type="button"
-        class="shift-option active"
+        class="shift-option"
         data-shift="Diurno"
       >
-        ☀️ Diurno
+        <span>☀</span>
+        <b>Diurno</b>
+        <small>09:00–17:00</small>
       </button>
 
       <button
@@ -1764,60 +1692,44 @@ function injectShiftControl() {
         class="shift-option"
         data-shift="Nocturno"
       >
-        🌙 Nocturno
+        <span>☾</span>
+        <b>Nocturno</b>
+        <small>17:00–24:00</small>
       </button>
+    `;
 
-    </div>
+    field.insertBefore(
+      control,
+      select
+    );
 
-    <input
-      id="plannerShift"
-      type="hidden"
-      value="Diurno"
-    >
-  `;
-
-
-  durationField.parentNode.insertBefore(
-    field,
-    durationField.nextSibling
-  );
-
-
-  field
-    .querySelectorAll(
-      ".shift-option"
-    )
-    .forEach(
-      button => {
+    control
+      .querySelectorAll(".shift-option")
+      .forEach(button => {
 
         button.addEventListener(
           "click",
           () => {
 
-            field
-              .querySelectorAll(
-                ".shift-option"
-              )
-              .forEach(
-                item =>
-                  item.classList.remove(
-                    "active"
-                  )
-              );
+            select.value =
+              button.dataset.shift ||
+              "Diurno";
 
-            button.classList.add(
-              "active"
-            );
+            syncShiftButtons();
 
-            $("plannerShift").value =
-              button.dataset.shift;
+            calculatePlannerRequirement();
+            renderEmployeeSelector();
           }
         );
-      }
-    );
+      });
+  }
+
+  select.classList.add(
+    "shift-native-hidden"
+  );
+
+  syncShiftButtons();
 }
-
-
 /* =========================================================
    DEPENDENCIAS
 ========================================================= */
