@@ -713,7 +713,7 @@ async function loadSheets() {
         );
 
 
-    state.employees =
+     state.employees =
       getSheetArray(
         data,
         [
@@ -727,8 +727,17 @@ async function loadSheets() {
         )
         .filter(
           item => item.name
+        )
+        .map(
+          (item, index) => ({
+            ...item,
+            __plannerKey:
+              String(
+                item.id || ""
+              ).trim() ||
+              `EMP-UI-${index + 1}`
+          })
         );
-
 
     state.yields =
       getSheetArray(
@@ -1161,12 +1170,11 @@ function getSelectedEmployees() {
 
 function employeeSelectionKey(employee) {
 
-  return [
-    normalize(employee?.name || ""),
-    normalize(employee?.trade || ""),
-    normalize(employee?.role || ""),
-    normalize(employee?.id || "")
-  ].join("|");
+  return String(
+    employee?.__plannerKey ||
+    employee?.id ||
+    ""
+  ).trim();
 }
 
 function renderEmployeeSelector() {
@@ -1632,27 +1640,47 @@ function clearActivityForm(
 ========================================================= */
 function syncShiftButtons() {
 
-  const select = $("plannerShift");
+  const select =
+    $("plannerShift");
 
   if (!select) {
     return;
   }
 
-  document
-    .querySelectorAll(".shift-option")
-    .forEach(button => {
+  const value =
+    select.value ||
+    "Diurno";
 
-      button.classList.toggle(
-        "active",
-        button.dataset.shift === select.value
-      );
-    });
+  document
+    .querySelectorAll(
+      "#shiftControl .shift-option"
+    )
+    .forEach(
+      button => {
+
+        const shift =
+          button.dataset.shift;
+
+        button.classList.toggle(
+          "active",
+          value === shift ||
+          (
+            value === "Ambos" &&
+            (
+              shift === "Diurno" ||
+              shift === "Nocturno"
+            )
+          )
+        );
+      }
+    );
 }
 
 
 function injectShiftControl() {
 
-  const select = $("plannerShift");
+  const select =
+    $("plannerShift");
 
   if (!select) {
     return;
@@ -1665,13 +1693,20 @@ function injectShiftControl() {
     return;
   }
 
+
   let control =
-    field.querySelector(".shift-control");
+    field.querySelector(
+      "#shiftControl"
+    );
+
 
   if (!control) {
 
     control =
       document.createElement("div");
+
+    control.id =
+      "shiftControl";
 
     control.className =
       "shift-control";
@@ -1698,31 +1733,65 @@ function injectShiftControl() {
       </button>
     `;
 
+
     field.insertBefore(
       control,
       select
     );
 
+
     control
-      .querySelectorAll(".shift-option")
-      .forEach(button => {
+      .querySelectorAll(
+        ".shift-option"
+      )
+      .forEach(
+        button => {
 
-        button.addEventListener(
-          "click",
-          () => {
+          button.addEventListener(
+            "click",
+            () => {
 
-            select.value =
-              button.dataset.shift ||
-              "Diurno";
+              const clicked =
+                button.dataset.shift;
 
-            syncShiftButtons();
+              const current =
+                select.value ||
+                "Diurno";
 
-            calculatePlannerRequirement();
-            renderEmployeeSelector();
-          }
-        );
-      });
+
+              if (
+                current === "Ambos"
+              ) {
+
+                select.value =
+                  clicked === "Diurno"
+                    ? "Nocturno"
+                    : "Diurno";
+
+              } else if (
+                current === clicked
+              ) {
+
+                return;
+
+              } else {
+
+                select.value =
+                  "Ambos";
+              }
+
+
+              syncShiftButtons();
+
+              calculatePlannerRequirement();
+
+              renderEmployeeSelector();
+            }
+          );
+        }
+      );
   }
+
 
   select.classList.add(
     "shift-native-hidden"
