@@ -6191,35 +6191,130 @@ function v5NormalizeExistingPlan(plan) {
    SELECTOR DE DEPENDENCIAS
 ========================================================= */
 
-function ensureDependencyPicker() {
+/* =========================================================
+   SELECTOR DE DEPENDENCIAS
+========================================================= */
+
+function readDependencyPickerLinks(){
 
   const select =
     $("plannerDependency");
 
-  if (!select) {
+  if(!select){
+    return [];
+  }
+
+  try{
+
+    return v5NormalizeDependencies(
+      JSON.parse(
+        select.dataset.dependencyLinks || "[]"
+      )
+    );
+
+  }catch(error){
+
+    console.warn(
+      "No se pudieron leer las dependencias:",
+      error
+    );
+
+    return [];
+  }
+}
+
+
+function setDependencyPickerLinks(
+  links = []
+){
+
+  const select =
+    $("plannerDependency");
+
+  if(!select){
+    return;
+  }
+
+  const normalized =
+    v5NormalizeDependencies(
+      links
+    );
+
+  select.dataset.dependencyLinks =
+    JSON.stringify(
+      normalized
+    );
+
+  select.value = "";
+
+  renderDependencyRules();
+}
+
+
+function dependencyRelationLabel(
+  type
+){
+
+  switch(
+    String(type || "FS")
+      .toUpperCase()
+  ){
+
+    case "SS":
+      return "Empezar cuando empiece";
+
+    case "FF":
+      return "Terminar cuando termine";
+
+    case "FS":
+    default:
+      return "Empezar después de que termine";
+  }
+}
+
+
+/* =========================================================
+   INICIALIZAR SELECTOR
+========================================================= */
+
+function ensureDependencyPicker(){
+
+  const select =
+    $("plannerDependency");
+
+  if(!select){
     return null;
   }
 
-  select.multiple = true;
+  /*
+   * IMPORTANTE:
+   * Ya no usamos <select multiple>.
+   * Cada selección se agrega a la lista
+   * de dependencias debajo.
+   */
 
-  select.size = 5;
+  select.multiple = false;
+  select.size = 1;
 
-  select.title =
-    "Puedes seleccionar varias actividades. En Windows usa Ctrl + clic.";
-
-  select.style.minHeight =
-    "110px";
-
-  select.style.padding =
-    "6px";
+  select.style.minHeight = "";
+  select.style.height = "";
+  select.style.padding = "";
 
   select.dataset.v5DependencyPicker =
     "1";
 
+  if(
+    !select.dataset.dependencyLinks
+  ){
+    select.dataset.dependencyLinks =
+      "[]";
+  }
+
+
   let help =
     $("plannerDependencyHelp");
 
-  if (!help) {
+  if(!help){
 
     help =
       document.createElement(
@@ -6229,21 +6324,19 @@ function ensureDependencyPicker() {
     help.id =
       "plannerDependencyHelp";
 
-    help.textContent =
-      "Puedes seleccionar varias. Ctrl + clic para seleccionar más de una.";
-
-    help.style.cssText =
-      "display:block;margin-top:5px;color:#8a928b;font-size:9px;line-height:1.35;";
-
     select.parentElement?.appendChild(
       help
     );
   }
 
+  help.textContent =
+    "Selecciona una actividad para agregarla como dependencia. Puedes agregar varias.";
+
+
   let rules =
     $("plannerDependencyRules");
 
-  if (!rules) {
+  if(!rules){
 
     rules =
       document.createElement(
@@ -6253,52 +6346,159 @@ function ensureDependencyPicker() {
     rules.id =
       "plannerDependencyRules";
 
-    rules.style.cssText =
-      "display:grid;gap:6px;margin-top:8px;";
-
     select.parentElement?.appendChild(
       rules
     );
   }
 
+
   select.removeEventListener(
     "change",
-    renderDependencyRules
+    addDependencyFromPicker
   );
 
   select.addEventListener(
     "change",
-    renderDependencyRules
+    addDependencyFromPicker
   );
+
 
   return select;
 }
 
 
-function populateDependencies() {
+/* =========================================================
+   AGREGAR UNA DEPENDENCIA DESDE EL SELECT
+========================================================= */
+
+function addDependencyFromPicker(){
+
+  const select =
+    $("plannerDependency");
+
+  if(
+    !select ||
+    !select.value
+  ){
+    return;
+  }
+
+
+  const activity =
+    state.plannedActivities[
+      Number(
+        select.value
+      )
+    ];
+
+  if(!activity){
+
+    select.value = "";
+
+    return;
+  }
+
+
+  /*
+   * Evitar que una actividad dependa
+   * de sí misma cuando estamos editando.
+   */
+
+  if(
+    ORBE.editId &&
+    String(activity.id) ===
+    String(ORBE.editId)
+  ){
+
+    alert(
+      "Una actividad no puede depender de sí misma."
+    );
+
+    select.value = "";
+
+    return;
+  }
+
+
+  const links =
+    readDependencyPickerLinks();
+
+
+  const exists =
+    links.some(
+      dep =>
+        String(dep.id) ===
+        String(activity.id)
+    );
+
+
+  if(!exists){
+
+    links.push({
+
+      id:
+        activity.id,
+
+      type:
+        "FS"
+
+    });
+
+  }
+
+
+  setDependencyPickerLinks(
+    links
+  );
+}
+
+
+/* =========================================================
+   POBLAR DEPENDENCIAS
+========================================================= */
+
+function populateDependencies(){
 
   const select =
     ensureDependencyPicker();
 
-  if (!select) {
+  if(!select){
     return;
   }
 
-  const previous =
-    new Set(
-      Array.from(
-        select.selectedOptions || []
-      ).map(
-        option =>
-          String(option.value)
-      )
-    );
+
+  /*
+   * Conservamos las dependencias actuales
+   * por ID y no por posición.
+   */
+
+  const existingLinks =
+    readDependencyPickerLinks();
+
 
   select.innerHTML =
-    `<option value="">Sin dependencia</option>`;
+    `<option value="">
+      Selecciona una dependencia...
+    </option>`;
+
 
   state.plannedActivities.forEach(
-    (activity, index) => {
+    (activity,index) => {
+
+      /*
+       * Mientras editamos una actividad,
+       * esa misma actividad no debe aparecer
+       * como posible dependencia.
+       */
+
+      if(
+        ORBE.editId &&
+        String(activity.id) ===
+        String(ORBE.editId)
+      ){
+        return;
+      }
+
 
       const option =
         document.createElement(
@@ -6311,118 +6511,132 @@ function populateDependencies() {
       option.textContent =
         `${index + 1}. ${activity.name}`;
 
-      if (
-        previous.has(
-          String(index)
-        )
-      ) {
-        option.selected = true;
-      }
-
       select.appendChild(
         option
       );
+
     }
   );
 
-  if (
-    state.plannedActivities.length === 0
-  ) {
-    select.value = "";
-  }
+
+  /*
+   * Quitamos referencias a actividades
+   * que ya no existen.
+   */
+
+  const validIds =
+    new Set(
+      state.plannedActivities.map(
+        activity =>
+          String(activity.id)
+      )
+    );
+
+
+  const validLinks =
+    existingLinks.filter(
+      dep =>
+        validIds.has(
+          String(dep.id)
+        )
+    );
+
+
+  select.dataset.dependencyLinks =
+    JSON.stringify(
+      validLinks
+    );
+
+
+  select.value = "";
+
 
   renderDependencyRules();
 }
 
 
-function renderDependencyRules() {
+/* =========================================================
+   MOSTRAR DEPENDENCIAS
+========================================================= */
 
-  const select =
-    $("plannerDependency");
+function renderDependencyRules(){
 
   const rules =
     $("plannerDependencyRules");
 
-  if (
-    !select ||
-    !rules
-  ) {
+  if(!rules){
     return;
   }
 
-  const selected =
-    Array.from(
-      select.selectedOptions || []
-    ).filter(
-      option =>
-        option.value !== ""
-    );
 
-  const previous =
-    new Map(
-      Array.from(
-        rules.querySelectorAll(
-          ".planner-dep-type"
-        )
-      ).map(
-        el => [
-          String(el.dataset.depId),
-          el.value
-        ]
-      )
-    );
+  const links =
+    readDependencyPickerLinks();
+
 
   rules.innerHTML = "";
 
-  selected.forEach(
-    option => {
+
+  if(!links.length){
+
+    const empty =
+      document.createElement(
+        "div"
+      );
+
+    empty.className =
+      "planner-dependency-empty";
+
+    empty.textContent =
+      "Esta actividad todavía no tiene dependencias.";
+
+    rules.appendChild(
+      empty
+    );
+
+    return;
+  }
+
+
+  links.forEach(
+    link => {
 
       const activity =
-        state.plannedActivities[
-          Number(option.value)
-        ];
+        state.plannedActivities.find(
+          item =>
+            String(item.id) ===
+            String(link.id)
+        );
 
-      if (!activity) {
+
+      if(!activity){
         return;
       }
 
-      const deps =
-        v5GetDependencies(
-          activity
-        );
-
-      const existing =
-        deps.find(
-          dep =>
-            String(dep.id) ===
-            String(activity.id)
-        );
-
-      const current =
-        previous.get(
-          String(activity.id)
-        ) ||
-        existing?.type ||
-        "FS";
 
       const row =
         document.createElement(
           "div"
         );
 
-      row.style.cssText =
-        "display:grid;grid-template-columns:minmax(0,1fr) 82px;gap:6px;align-items:center;";
+      row.className =
+        "planner-dependency-row";
+
+
+      /* NOMBRE */
 
       const name =
         document.createElement(
-          "span"
+          "div"
         );
+
+      name.className =
+        "planner-dependency-name";
 
       name.textContent =
         activity.name;
 
-      name.style.cssText =
-        "font-size:9px;font-weight:700;color:#697169;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+      /* RELACIÓN */
 
       const type =
         document.createElement(
@@ -6435,20 +6649,114 @@ function renderDependencyRules() {
       type.dataset.depId =
         activity.id;
 
-      type.innerHTML =
-        `<option value="FS">FS</option>
-         <option value="SS">SS</option>
-         <option value="FF">FF</option>`;
+      type.innerHTML = `
+
+        <option value="FS">
+          Empezar después de que termine
+        </option>
+
+        <option value="SS">
+          Empezar cuando empiece
+        </option>
+
+        <option value="FF">
+          Terminar cuando termine
+        </option>
+
+      `;
+
 
       type.value =
-        ["FS", "SS", "FF"].includes(
-          current
+        ["FS","SS","FF"].includes(
+          String(link.type)
+            .toUpperCase()
         )
-          ? current
+          ? String(
+              link.type
+            ).toUpperCase()
           : "FS";
 
-      type.style.cssText =
-        "height:30px;font-size:9px;";
+
+      type.addEventListener(
+        "change",
+        () => {
+
+          const updated =
+            readDependencyPickerLinks();
+
+
+          const target =
+            updated.find(
+              dep =>
+                String(dep.id) ===
+                String(activity.id)
+            );
+
+
+          if(target){
+
+            target.type =
+              type.value;
+
+          }
+
+
+          const select =
+            $("plannerDependency");
+
+          if(select){
+
+            select.dataset.dependencyLinks =
+              JSON.stringify(
+                updated
+              );
+
+          }
+
+        }
+      );
+
+
+      /* ELIMINAR */
+
+      const remove =
+        document.createElement(
+          "button"
+        );
+
+      remove.type =
+        "button";
+
+      remove.className =
+        "planner-dependency-remove";
+
+      remove.textContent =
+        "×";
+
+      remove.title =
+        "Quitar dependencia";
+
+
+      remove.addEventListener(
+        "click",
+        () => {
+
+          const updated =
+            readDependencyPickerLinks()
+              .filter(
+                dep =>
+                  String(dep.id) !==
+                  String(activity.id)
+              );
+
+
+          setDependencyPickerLinks(
+            updated
+          );
+
+        }
+      );
+
 
       row.appendChild(
         name
@@ -6458,64 +6766,29 @@ function renderDependencyRules() {
         type
       );
 
+      row.appendChild(
+        remove
+      );
+
+
       rules.appendChild(
         row
       );
+
     }
   );
 }
 
 
-function getDependencyLinks() {
+/* =========================================================
+   OBTENER DEPENDENCIAS PARA GUARDAR
+========================================================= */
 
-  const select =
-    ensureDependencyPicker();
+function getDependencyLinks(){
 
-  if (!select) {
-    return [];
-  }
+  return readDependencyPickerLinks();
 
-  return Array.from(
-    select.selectedOptions || []
-  )
-    .filter(
-      option =>
-        option.value !== ""
-    )
-    .map(option => {
-
-      const activity =
-        state.plannedActivities[
-          Number(option.value)
-        ];
-
-      if (!activity) {
-        return null;
-      }
-
-      const typeEl =
-        Array.from(
-          document.querySelectorAll(
-            ".planner-dep-type"
-          )
-        ).find(
-          el =>
-            String(el.dataset.depId) ===
-            String(activity.id)
-        );
-
-      return {
-        id:
-          activity.id,
-
-        type:
-          typeEl?.value ||
-          "FS"
-      };
-    })
-    .filter(Boolean);
 }
-
 
 function getDependency() {
 
@@ -7159,64 +7432,11 @@ function beginEditPlannerActivity(
 
   onActivitySelected();
 
-  const depIds =
-    new Set(
-      v5GetDependencies(
-        item
-      ).map(
-        dep =>
-          String(dep.id)
-      )
-    );
-
-  const select =
-    $("plannerDependency");
-
-  if (select) {
-
-    Array.from(
-      select.options
-    ).forEach(
-      option => {
-
-        const activity =
-          state.plannedActivities[
-            Number(option.value)
-          ];
-
-        option.selected =
-          !!activity &&
-          depIds.has(
-            String(activity.id)
-          );
-      }
-    );
-
-    renderDependencyRules();
-
+    setDependencyPickerLinks(
     v5GetDependencies(
       item
-    ).forEach(
-      dep => {
-
-        const typeEl =
-          Array.from(
-            document.querySelectorAll(
-              ".planner-dep-type"
-            )
-          ).find(
-            el =>
-              String(el.dataset.depId) ===
-              String(dep.id)
-          );
-
-        if (typeEl) {
-          typeEl.value =
-            dep.type;
-        }
-      }
-    );
-  }
+    )
+  );
 
   state.selectedEmployees =
     (item.employees || [])
@@ -7429,28 +7649,9 @@ function clearActivityForm(
       "";
   }
 
-  if (
-    $("plannerDependency")
-  ) {
-
-    Array.from(
-      $("plannerDependency").options
-    ).forEach(
-      option =>
-        option.selected =
-          false
-    );
-
-    $("plannerDependency").value =
-      "";
-  }
-
-  if (
-    $("plannerDependencyRules")
-  ) {
-    $("plannerDependencyRules").innerHTML =
-      "";
-  }
+setDependencyPickerLinks(
+  []
+);
 
   if (
     $("plannerDuration")
