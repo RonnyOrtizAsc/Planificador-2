@@ -4927,15 +4927,6 @@ function bindEvents() {
       calculatePlannerRequirement
     );
 
-
-const saveButton = $("savePlannerPlanning");
-
-if (saveButton) {
-  saveButton.addEventListener(
-    "click",
-    savePlannerPlanning
-  );
-}
 const saveButton = $("savePlannerPlanning");
 
 if (saveButton) {
