@@ -5091,18 +5091,6 @@ $("mobileMenuBackdrop")
     "click",
     closeMobileMenu
   );
-    .forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          () =>
-            showView(
-              button.dataset.view
-            )
-        );
-      }
-    );
 
 
   [
