@@ -1740,63 +1740,72 @@ function injectShiftControl() {
     );
 
 
-    control
-      .querySelectorAll(
-        ".shift-option"
-      )
-      .forEach(
-        button => {
+control
+  .querySelectorAll(
+    ".shift-option"
+  )
+  .forEach(
+    button => {
 
-          button.onclick =
-            event => {
+      button.onclick = event => {
 
-              event.preventDefault();
-              event.stopPropagation();
-
-
-              const clicked =
-                button.dataset.shift;
-
-              const current =
-                select.value ||
-                "Diurno";
+        event.preventDefault();
+        event.stopPropagation();
 
 
-              if (
-                current === "Ambos"
-              ) {
+        const clicked =
+          button.dataset.shift;
 
-                select.value =
-                  clicked === "Diurno"
-                    ? "Nocturno"
-                    : "Diurno";
-
-              } else if (
-                current === clicked
-              ) {
-
-                select.value =
-                  clicked;
-
-              } else {
-
-                select.value =
-                  "Ambos";
-              }
+        const current =
+          select.value ||
+          "Diurno";
 
 
-              syncShiftButtons();
+        if (
+          current === "Diurno" &&
+          clicked === "Nocturno"
+        ) {
 
-              state._availabilityShift =
-                select.value;
+          select.value =
+            "Ambos";
 
-              calculatePlannerRequirement();
+        } else if (
+          current === "Nocturno" &&
+          clicked === "Diurno"
+        ) {
 
-              renderEmployeeSelector();
-            };
+          select.value =
+            "Ambos";
+
+        } else if (
+          current === "Ambos" &&
+          clicked === "Diurno"
+        ) {
+
+          select.value =
+            "Nocturno";
+
+        } else if (
+          current === "Ambos" &&
+          clicked === "Nocturno"
+        ) {
+
+          select.value =
+            "Diurno";
         }
-      );
-  }
+
+
+        syncShiftButtons();
+
+        state._availabilityShift =
+          select.value;
+
+        calculatePlannerRequirement();
+
+        renderEmployeeSelector();
+      };
+    }
+  );
 
 
   select.classList.add(
