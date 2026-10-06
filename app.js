@@ -4617,7 +4617,12 @@ function loadCurrentProjectPlans() {
           item.phase,
 
         subarea:
-          "",
+  state.activities.find(
+    activity =>
+      String(activity.id) ===
+      String(item.activityId)
+  )?.subarea ||
+  "",
 
         name:
           item.name,
@@ -4644,8 +4649,13 @@ function loadCurrentProjectPlans() {
           item.dependencyId ||
           null,
 
-        dependencyName:
-          "",
+      dependencyName:
+  source.find(
+    dependency =>
+      String(dependency.id) ===
+      String(item.dependencyId)
+  )?.name ||
+  "",
 
         employees:
           item.employees
