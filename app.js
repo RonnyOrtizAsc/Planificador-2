@@ -2122,6 +2122,10 @@ async function addPlannerActivity() {
       ) - 1
     );
 
+  if(alertBusyEmployees(start,end,"")){
+    return;
+  }
+
 
   const dependency =
     getDependency();
@@ -3660,16 +3664,25 @@ function injectProjectStyles() {
   );
 }
 
+let projectGateBound = false;
+
+function bindProjectGateEvents() {
+  if (projectGateBound) return;
+  projectGateBound = true;
+
+  $("newProjectBtn")?.addEventListener("click", () => showProjectSection("form"));
+  $("continueProjectBtn")?.addEventListener("click", () => showProjectSection("list"));
+  $("backProjectHome")?.addEventListener("click", () => showProjectSection("home"));
+  $("backProjectList")?.addEventListener("click", () => showProjectSection("home"));
+  $("createProjectBtn")?.addEventListener("click", createProject);
+}
 
 function mountProjectGate() {
 
-  if (
-    $("projectGate")
-  ) {
-
+  if ($("projectGate")) {
+    bindProjectGateEvents();
     return;
   }
-
 
   injectProjectStyles();
 
@@ -5324,6 +5337,11 @@ async function addPlannerActivityFinal(){
   item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
   item.employees=getSelectedEmployees(); item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
   item.shift=orbeEl("plannerShift")?.value||"Diurno";
+
+  if(alertBusyEmployees(start,item.end,item.sheetId||item.id)){
+    return;
+  }
+
   try{await savePlan(item);ORBE.editId=null;orbeEl("addPlannerActivity").textContent="+ Agregar actividad";orbeEl("cancelEditPlannerActivity")?.remove();populateDependencies();renderAllPlannerViews();clearActivityForm(false);}catch(e){console.error(e);alert("No se pudieron guardar los cambios:\n\n"+e.message);}
 }
 window.addPlannerActivity=addPlannerActivityFinal;
@@ -5378,8 +5396,27 @@ function employeeBusyAcrossProjects(employeeId, start, end, excludePlanId=""){
   return (state.allPlans||[]).some(p=>{
     if(String(p.id)===String(excludePlanId))return false;
     if(!p.employees?.some(x=>String(typeof x==="object"?x.id:x)===String(employeeId)))return false;
-    const ps=parseDate(p.start),pe=parseDate(p.end);return ps&&pe&&s<=pe&&e>=ps;
+    const ps=parseDate(p.start),pe=parseDate(p.end);
+    return ps&&pe&&s<=pe&&e>=ps;
   });
+}
+
+function getBusyEmployees(start,end,excludePlanId=""){
+  return state.selectedEmployees.filter(employee=>
+    employeeBusyAcrossProjects(employee.id,start,end,excludePlanId)
+  );
+}
+
+function alertBusyEmployees(start,end,excludePlanId=""){
+  const busy=getBusyEmployees(start,end,excludePlanId);
+  if(!busy.length)return false;
+  const names=busy.map(e=>e.name).join(", ");
+  alert(
+    `No se puede asignar el equipo en esas fechas.\n\n`+
+    `Estas personas ya están ocupadas:\n${names}\n\n`+
+    `Cambia las fechas, la dependencia o selecciona otro equipo.`
+  );
+  return true;
 }
 
 /* Add a compact availability line to the current selector. */
