@@ -6684,27 +6684,12 @@ function renderDependencyRules(){
 
   rules.innerHTML = "";
 
+if(!links.length){
 
-  if(!links.length){
+  rules.innerHTML = "";
 
-    const empty =
-      document.createElement(
-        "div"
-      );
-
-    empty.className =
-      "planner-dependency-empty";
-
-    empty.textContent =
-      "Esta actividad todavía no tiene dependencias.";
-
-    rules.appendChild(
-      empty
-    );
-
-    return;
-  }
-
+  return;
+}
 
   links.forEach(
     link => {
