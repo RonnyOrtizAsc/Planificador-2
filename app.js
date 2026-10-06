@@ -4411,10 +4411,12 @@ async function createProject() {
     );
 
 
-    enterProject(
-      project
-    );
+ if(pendingActivitySave){
 
+  pendingActivitySave=false;
+
+  await addPlannerActivityFinal();
+}
 
   } catch (error) {
 
@@ -5464,71 +5466,257 @@ function cancelEditPlannerActivity(){
 
 /* Override add: same original calculation, but updates when editing. */
 const __orbeAddOriginal = addPlannerActivity;
+
+let pendingActivitySave = false;
+
 async function addPlannerActivityFinal(){
-  if(!state.currentProject){ openProjectGate(); alert("Primero crea o abre un proyecto para guardar actividades."); return; }
-  if(!ORBE.editId){ return __orbeAddOriginal(); }
-  const item=state.plannedActivities.find(x=>String(x.id)===String(ORBE.editId));
-  if(!item){ORBE.editId=null;return __orbeAddOriginal();}
-  const activity=state.activities[Number(orbeEl("plannerActivity")?.value)];
-  if(!activity || !state.selectedEmployees.length){alert("Selecciona actividad y al menos un empleado para formar el equipo.");return;}
-  const recommendation=findYield(activity);
-  if(!recommendation?.yield){alert("Esta actividad no tiene rendimiento registrado.");return;}
-  const entered=getInputDurationDays();
-  const duration=Math.max(1,Math.ceil(entered>0?entered:estimateDuration(activity,recommendation)));
-  const dep=getDependency();
-  if(dep && String(dep.id) === String(item.id)){
-    alert("Una actividad no puede depender de sí misma.");
-    return;
-  }
-  if(dep && dependencyWouldCycle(item.id, dep.id)){
-    alert("Esa dependencia crea un ciclo. Elige otra actividad.");
-    return;
-  }
-  const start=calculateStartDate();
-  const end=addWorkDays(start,duration-1);
-  const excludeId=item.sheetId||item.id;
 
-  if (!validateProjectEnd(end)) {
-    alert(getProjectEndMessage(end));
+  /*
+   * Se puede planificar sin proyecto.
+   * Si el usuario intenta guardar una actividad,
+   * primero se le pide crear el proyecto.
+   */
+  if(!state.currentProject){
+
+    pendingActivitySave = true;
+
+    openProjectGate();
+    showProjectSection("form");
+
     return;
   }
 
-  const previousEmployees = state.selectedEmployees;
-  const previousShift = orbeEl("plannerShift")?.value || "Diurno";
-  const nextEmployees = getSelectedEmployees();
-  const nextShift = orbeEl("plannerShift")?.value||"Diurno";
-  state.selectedEmployees = nextEmployees;
-  if(alertBusyEmployees(start,end,excludeId)){
-    state.selectedEmployees = previousEmployees;
-    state._availabilityShift = previousShift;
+  /*
+   * Si no estamos editando,
+   * usamos la función normal de agregar.
+   */
+  if(!ORBE.editId){
+    return __orbeAddOriginal();
+  }
+
+  const item=state.plannedActivities.find(
+    x=>String(x.id)===String(ORBE.editId)
+  );
+
+  if(!item){
+    ORBE.editId=null;
+    return __orbeAddOriginal();
+  }
+
+  const activity=
+    state.activities[
+      Number(
+        orbeEl("plannerActivity")?.value
+      )
+    ];
+
+  if(
+    !activity ||
+    !state.selectedEmployees.length
+  ){
+    alert(
+      "Selecciona actividad y al menos un empleado para formar el equipo."
+    );
     return;
   }
 
-  item.activityId=activity.id; item.phase=activity.phase; item.subarea=activity.subarea; item.name=activity.name;
-  item.quantity=activity.quantity; item.unit=activity.unit; item.manager=orbeEl("plannerManager")?.value||"";
-  item.duration=duration; item.start=start; item.end=end;
-  item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
-  item.employees=nextEmployees; item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
-  item.shift=nextShift;
+  const recommendation=
+    findYield(activity);
+
+  if(!recommendation?.yield){
+    alert(
+      "Esta actividad no tiene rendimiento registrado."
+    );
+    return;
+  }
+
+  const entered=
+    getInputDurationDays();
+
+  const duration=
+    Math.max(
+      1,
+      Math.ceil(
+        entered>0
+          ? entered
+          : estimateDuration(
+              activity,
+              recommendation
+            )
+      )
+    );
+
+  const dep=
+    getDependency();
+
+  if(
+    dep &&
+    String(dep.id)===String(item.id)
+  ){
+    alert(
+      "Una actividad no puede depender de sí misma."
+    );
+    return;
+  }
+
+  if(
+    dep &&
+    dependencyWouldCycle(
+      item.id,
+      dep.id
+    )
+  ){
+    alert(
+      "Esa dependencia crea un ciclo. Elige otra actividad."
+    );
+    return;
+  }
+
+  const start=
+    calculateStartDate();
+
+  const end=
+    addWorkDays(
+      start,
+      duration-1
+    );
+
+  if(!validateProjectEnd(end)){
+    alert(
+      getProjectEndMessage(end)
+    );
+    return;
+  }
+
+  const previousEmployees=
+    state.selectedEmployees;
+
+  const previousShift=
+    orbeEl("plannerShift")?.value ||
+    "Diurno";
+
+  const nextEmployees=
+    getSelectedEmployees();
+
+  const nextShift=
+    orbeEl("plannerShift")?.value ||
+    "Diurno";
+
+  state.selectedEmployees=
+    nextEmployees;
+
+  if(
+    alertBusyEmployees(
+      start,
+      end,
+      item.sheetId || item.id
+    )
+  ){
+    state.selectedEmployees=
+      previousEmployees;
+
+    state._availabilityShift=
+      previousShift;
+
+    return;
+  }
+
+  item.activityId=
+    activity.id;
+
+  item.phase=
+    activity.phase;
+
+  item.subarea=
+    activity.subarea;
+
+  item.name=
+    activity.name;
+
+  item.quantity=
+    activity.quantity;
+
+  item.unit=
+    activity.unit;
+
+  item.manager=
+    orbeEl("plannerManager")?.value ||
+    "";
+
+  item.duration=
+    duration;
+
+  item.start=
+    start;
+
+  item.end=
+    end;
+
+  item.dependencyId=
+    dep?.id || null;
+
+  item.dependencyName=
+    dep?.name || "";
+
+  item.employees=
+    nextEmployees;
+
+  item.yield=
+    recommendation.yield;
+
+  item.yieldUnit=
+    recommendation.yieldUnit || "";
+
+  item.shift=
+    nextShift;
 
   try{
+
     recalculateAllDates();
-    for(const plan of state.plannedActivities){
-      if(plan.sheetId) await savePlan(plan);
+
+    for(
+      const plan of state.plannedActivities
+    ){
+
+      if(plan.sheetId){
+        await savePlan(plan);
+      }
+
     }
+
     ORBE.editId=null;
-    state.editingPlanId = "";
-    orbeEl("addPlannerActivity").textContent="+ Agregar actividad";
-    orbeEl("cancelEditPlannerActivity")?.remove();
+
+    state.editingPlanId=
+      "";
+
+    orbeEl(
+      "addPlannerActivity"
+    ).textContent=
+      "+ Agregar actividad";
+
+    orbeEl(
+      "cancelEditPlannerActivity"
+    )?.remove();
+
     populateDependencies();
+
     renderAllPlannerViews();
+
     clearActivityForm(false);
+
   }catch(e){
+
     console.error(e);
-    alert("No se pudieron guardar los cambios:\n\n"+e.message);
+
+    alert(
+      "No se pudieron guardar los cambios:\n\n"+
+      e.message
+    );
   }
 }
-window.addPlannerActivity=addPlannerActivityFinal;
+
+window.addPlannerActivity=
+  addPlannerActivityFinal;
 
 /* Add edit action to dependency nodes without destroying existing delete behavior. */
 const __orbeRenderDependencyOriginal=renderDependencyScheme;
