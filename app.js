@@ -1677,6 +1677,7 @@ function syncShiftButtons() {
 }
 
 
+
 function injectShiftControl() {
 
   const select =
@@ -1693,12 +1694,8 @@ function injectShiftControl() {
     return;
   }
 
-
   let control =
-    field.querySelector(
-      "#shiftControl"
-    );
-
+    field.querySelector("#shiftControl");
 
   if (!control) {
 
@@ -1733,80 +1730,78 @@ function injectShiftControl() {
       </button>
     `;
 
-
     field.insertBefore(
       control,
       select
     );
 
+    control
+      .querySelectorAll(".shift-option")
+      .forEach(button => {
 
-control
-  .querySelectorAll(
-    ".shift-option"
-  )
-  .forEach(
-    button => {
+        button.addEventListener(
+          "click",
+          event => {
 
-      button.onclick = event => {
+            event.preventDefault();
+            event.stopPropagation();
 
-        event.preventDefault();
-        event.stopPropagation();
+            const clicked =
+              button.dataset.shift;
 
+            const current =
+              select.value ||
+              "Diurno";
 
-        const clicked =
-          button.dataset.shift;
+            if (
+              current === "Ambos"
+            ) {
 
-        const current =
-          select.value ||
-          "Diurno";
+              select.value =
+                clicked === "Diurno"
+                  ? "Nocturno"
+                  : "Diurno";
 
+            } else if (
+              current === clicked
+            ) {
 
-        if (
-          current === "Diurno" &&
-          clicked === "Nocturno"
-        ) {
+              select.value =
+                clicked;
 
-          select.value =
-            "Ambos";
+            } else {
 
-        } else if (
-          current === "Nocturno" &&
-          clicked === "Diurno"
-        ) {
+              select.value =
+                "Ambos";
+            }
 
-          select.value =
-            "Ambos";
+            syncShiftButtons();
 
-        } else if (
-          current === "Ambos" &&
-          clicked === "Diurno"
-        ) {
+            state._availabilityShift =
+              select.value;
 
-          select.value =
-            "Nocturno";
+            calculatePlannerRequirement();
 
-        } else if (
-          current === "Ambos" &&
-          clicked === "Nocturno"
-        ) {
+            renderEmployeeSelector();
+          }
+        );
+      });
+  }
 
-          select.value =
-            "Diurno";
-        }
+  if (
+    !select.querySelector(
+      'option[value="Ambos"]'
+    )
+  ) {
 
+    const ambos =
+      document.createElement("option");
 
-        syncShiftButtons();
+    ambos.value = "Ambos";
+    ambos.textContent = "Ambos";
 
-        state._availabilityShift =
-          select.value;
-
-        calculatePlannerRequirement();
-
-        renderEmployeeSelector();
-      };
-    }
-  );
-
+    select.appendChild(ambos);
+  }
 
   select.classList.add(
     "shift-native-hidden"
