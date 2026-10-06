@@ -2995,3 +2995,44 @@ body.mobile-menu-open{
     margin-left:0;
   }
 }
+/* =========================================================
+   FIX — EVITAR ESPACIOS MUERTOS EN LOS CAMPOS DEL FORMULARIO
+========================================================= */
+
+.planner-form-grid > .field{
+  align-content:start;
+}
+
+
+/* Los campos normales no deben estirarse
+   por culpa de un campo vecino más alto. */
+
+.planner-form-grid > .field:not(.field-wide){
+  align-self:start;
+}
+
+
+/* Dependencias sí puede crecer verticalmente,
+   pero sin afectar el contenido interno de otros campos. */
+
+.planner-form-grid > .field:has(#plannerDependency){
+  align-self:start;
+  align-content:start;
+}
+
+
+/* Actividad y encargado */
+.planner-form-grid > .field:has(#plannerActivity),
+.planner-form-grid > .field:has(#plannerManager),
+.planner-form-grid > .field:has(#plannerPhase),
+.planner-form-grid > .field:has(#plannerDuration),
+.planner-form-grid > .field:has(#plannerShift){
+  align-self:start;
+  align-content:start;
+}
+
+
+/* Asignar mantiene su comportamiento de bloque grande */
+.planner-form-grid > .field.field-wide:has(#plannerEmployees){
+  align-content:start;
+}
