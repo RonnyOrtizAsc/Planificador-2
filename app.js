@@ -798,6 +798,9 @@ async function loadSheets() {
     populateManagers();
     renderEmployeeSelector();
     updateCounts();
+    if (typeof window.refreshScenarioActivities === "function") {
+      window.refreshScenarioActivities();
+    }
 
     setConnection(
       "Google Sheets conectado",
@@ -3594,6 +3597,21 @@ function injectProjectStyles() {
 
 let projectGateBound = false;
 
+function skipProjectForNow() {
+  state.currentProject = null;
+  state.plannedActivities = [];
+  state.selectedEmployees = [];
+  state.editingPlanId = "";
+  closeProjectGate();
+  showView("planificador");
+  try {
+    populateDependencies();
+    renderAllPlannerViews();
+  } catch (error) {
+    console.warn("No se pudo refrescar el planificador en modo libre:", error);
+  }
+}
+
 function bindProjectGateEvents() {
   if (projectGateBound) return;
   projectGateBound = true;
@@ -3603,6 +3621,7 @@ function bindProjectGateEvents() {
   $("backProjectHome")?.addEventListener("click", () => showProjectSection("home"));
   $("backProjectList")?.addEventListener("click", () => showProjectSection("home"));
   $("createProjectBtn")?.addEventListener("click", createProject);
+  $("skipProjectBtn")?.addEventListener("click", skipProjectForNow);
 }
 
 function mountProjectGate() {
@@ -3696,6 +3715,14 @@ function mountProjectGate() {
             </button>
 
           </div>
+
+          <button
+            id="skipProjectBtn"
+            class="project-skip"
+            type="button"
+          >
+            Omitir por ahora →
+          </button>
 
         </div>
 
@@ -5114,7 +5141,9 @@ if (
 /* ---------- helpers ---------- */
 const ORBE = {
   editId: null,
-  scenarioMode: "individual"
+  scenarioMode: "individual",
+  scenarioBound: false,
+  presets: JSON.parse(localStorage.getItem("obra_presets") || "[]")
 };
 
 function orbeEl(id){ return document.getElementById(id); }
@@ -5130,103 +5159,241 @@ function orbeEscape(v=""){ return String(v).replace(/&/g,"&amp;").replace(/</g,"
    recursos = cantidad / (rendimiento × días × eficiencia)
    rendimiento requerido = cantidad / (recursos × días × eficiencia)
 ========================================================= */
-function mountScenarioCalculator(){
-  const host = orbeEl("escenariosContent");
-  if(!host || orbeEl("orbeScenarioCalculator")) return;
+function scenarioNum(id, fallback=0){
+  const el = orbeEl(id);
+  if(!el) return fallback;
+  const n = Number(String(el.value ?? "").replace(/,/g,"."));
+  return Number.isFinite(n) ? n : fallback;
+}
 
-  const wrap=document.createElement("div");
-  wrap.id="orbeScenarioCalculator";
-  wrap.innerHTML=`
-    <div class="orbe-calc-head">
-      <div>
-        <span class="orbe-calc-kicker">CALCULADORA DE RECURSOS</span>
-        <h3>Escenarios de producción</h3>
-        <p>Prueba cantidad, rendimiento, eficiencia, plazo y recursos sin modificar tu cronograma.</p>
-      </div>
-      <div class="orbe-mode-toggle">
-        <button type="button" data-orbe-mode="individual" class="active">Individual</button>
-        <button type="button" data-orbe-mode="team">Equipo</button>
-      </div>
-    </div>
-    <div class="orbe-calc-grid">
-      <label>Cantidad<input id="quantity" type="number" min="0" step="0.01" value="0"></label>
-      <label>Unidad<input id="unit" type="text" value="m²"></label>
-      <label>Rendimiento<input id="yield" type="number" min="0" step="0.01" value="0"><small id="yieldLabel">unidad/persona/día</small></label>
-      <label>Eficiencia %<input id="efficiency" type="number" min="1" step="1" value="100"></label>
-      <label>Plazo objetivo<input id="targetDays" type="number" min="0.01" step="0.01" value="1"><small>días</small></label>
-      <label>Recursos actuales<input id="resources" type="number" min="1" step="1" value="1"></label>
-      <label>Recursos objetivo<input id="resourcesTarget" type="number" min="1" step="1" value="1"></label>
-      <label>Personas por equipo<input id="peoplePerTeam" type="number" min="1" step="1" value="2"></label>
-    </div>
-    <div class="orbe-results">
-      <article><span>RECURSOS NECESARIOS</span><strong id="requiredResources">—</strong><small id="requiredDetail">Ingresa cantidad y rendimiento.</small></article>
-      <article><span>DÍAS CON LOS RECURSOS</span><strong id="calculatedDays">—</strong><small id="productionDetail">Producción: —</small></article>
-      <article><span>RENDIMIENTO NECESARIO</span><strong id="requiredYield">—</strong><small id="requiredYieldDetail">Ingresa cantidad, plazo y recursos.</small></article>
-    </div>
-    <div class="orbe-scenario-table-wrap">
-      <div class="orbe-table-title">Comparación de recursos cercanos</div>
-      <table class="orbe-scenario-table"><thead><tr><th>Recursos</th><th>Personas</th><th>Producción/día</th><th>Días</th></tr></thead><tbody id="scenarioTable"></tbody></table>
-    </div>`;
-  host.innerHTML="";
-  host.appendChild(wrap);
+function scenarioUnit(){
+  return (orbeEl("unit")?.value || "unidad").trim() || "unidad";
+}
 
-  wrap.querySelectorAll("[data-orbe-mode]").forEach(btn=>btn.addEventListener("click",()=>{
-    ORBE.scenarioMode=btn.dataset.orbeMode;
-    wrap.querySelectorAll("[data-orbe-mode]").forEach(x=>x.classList.toggle("active",x===btn));
-    calculateOrbeScenario();
-  }));
-  ["quantity","yield","efficiency","targetDays","resources","resourcesTarget","peoplePerTeam","unit"].forEach(id=>{
-    orbeEl(id)?.addEventListener("input",calculateOrbeScenario);
-    orbeEl(id)?.addEventListener("change",calculateOrbeScenario);
+function scenarioResourceWord(){
+  return ORBE.scenarioMode === "individual" ? "personas" : "equipos";
+}
+
+function scenarioResourceSingular(){
+  return ORBE.scenarioMode === "individual" ? "persona" : "equipo";
+}
+
+function scenarioFmt(value, decimals=2){
+  return Number(value || 0).toLocaleString("es-SV", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
   });
+}
+
+function scenarioFindYield(activity){
+  if(!activity) return null;
+  const name = normalize(activity.name);
+  const exact = state.yields.find(y => normalize(y.activity) === name);
+  if(exact && exact.yield > 0) return exact;
+  const related = state.yields.find(y => {
+    const yName = normalize(y.activity);
+    return yName && (name.includes(yName) || yName.includes(name));
+  });
+  return related && related.yield > 0 ? related : null;
+}
+
+function populateScenarioActivities(){
+  const select = orbeEl("activitySelect");
+  if(!select) return;
+
+  const previous = select.value;
+  select.innerHTML = `<option value="">Sin actividad — prueba libre</option>`;
+
+  (state.activities || []).forEach((item,index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = `${item.id || ""} — ${item.name || ""}` +
+      `${item.quantity != null ? ` · ${formatCompact(item.quantity)} ${item.unit || ""}` : ""}`;
+    select.appendChild(option);
+  });
+
+  if(previous && [...select.options].some(o => o.value === previous)){
+    select.value = previous;
+  }
+
+  const count = orbeEl("navCount");
+  if(count) count.textContent = String((state.activities || []).length);
+
+  const status = orbeEl("sheetStatusText");
+  if(status && state.connected){
+    status.textContent = `${(state.activities || []).length} actividades · ${(state.yields || []).length} rendimientos.`;
+  }
+}
+
+function setScenarioMode(mode){
+  ORBE.scenarioMode = mode;
+  orbeEl("individualBtn")?.classList.toggle("selected", mode === "individual");
+  orbeEl("teamBtn")?.classList.toggle("selected", mode === "team");
+  const peopleWrap = orbeEl("peoplePerTeamWrap");
+  if(peopleWrap) peopleWrap.hidden = mode !== "team";
+  const unit = scenarioUnit();
+  const suffix = orbeEl("yieldSuffix");
+  if(suffix) suffix.textContent = `${unit} / persona / día`;
+  const label1 = orbeEl("resourceLabel");
+  if(label1) label1.textContent = scenarioResourceWord();
+  const label2 = orbeEl("resourceLabel2");
+  if(label2) label2.textContent = scenarioResourceWord();
   calculateOrbeScenario();
 }
 
-function calculateOrbeScenario(){
-  const Q=orbeNum(orbeEl("quantity")?.value);
-  const R=orbeNum(orbeEl("yield")?.value);
-  const E=Math.max(.01,orbeNum(orbeEl("efficiency")?.value,100))/100;
-  const targetDays=Math.max(.01,orbeNum(orbeEl("targetDays")?.value,1));
-  const resources=Math.max(1,orbeNum(orbeEl("resources")?.value,1));
-  const targetResources=Math.max(1,orbeNum(orbeEl("resourcesTarget")?.value,1));
-  const peoplePerTeam=Math.max(1,orbeNum(orbeEl("peoplePerTeam")?.value,1));
-  const unit=(orbeEl("unit")?.value||"unidad").trim()||"unidad";
-  const team=ORBE.scenarioMode==="team";
-  const activePeople=team?resources*peoplePerTeam:resources;
-  const targetPeople=team?targetResources*peoplePerTeam:targetResources;
-  const resourceWord=team?"equipos":"personas";
-  const peopleField=orbeEl("peoplePerTeam");
-  if(peopleField) peopleField.disabled=!team;
-  const resourceSingular=team?"equipo":"persona";
-  const set=(id,val)=>{const e=orbeEl(id);if(e)e.textContent=val;};
-  if(!Q||!R){
-    set("requiredResources","—");set("requiredDetail","Ingresa cantidad y rendimiento.");
-    set("calculatedDays","—");set("productionDetail","Producción: —");
-    set("requiredYield","—");set("requiredYieldDetail","Ingresa cantidad, plazo y recursos.");
-    if(orbeEl("scenarioTable"))orbeEl("scenarioTable").innerHTML="";
+function loadScenarioActivity(){
+  const value = orbeEl("activitySelect")?.value || "";
+  const info = orbeEl("activityInfo");
+  if(value === ""){
+    if(info) info.textContent = "Selecciona una partida para cargar automáticamente su cantidad y unidad.";
+    calculateOrbeScenario();
     return;
   }
-  const daily=R*activePeople*E;
-  const days=Q/daily;
-  const raw=Q/(R*targetDays*E);
-  const required=Math.max(1,Math.ceil(raw));
-  const requiredYield=Q/(targetPeople*targetDays*E);
-  set("requiredResources",team?`${required} ${resourceWord}`:`${required} personas`);
-  set("requiredDetail",team?`${orbeFmt(raw)} equipos → se requieren ${required} equipos (${required*peoplePerTeam} personas)`: `${orbeFmt(raw)} personas calculadas → se requieren ${required} personas`);
-  set("calculatedDays",`${orbeFmt(days)} días`);
-  set("productionDetail",`Producción: ${orbeFmt(daily)} ${unit}/día · ${activePeople} personas`);
-  set("requiredYield",`${orbeFmt(requiredYield)} ${unit}/${resourceSingular}/día`);
-  set("requiredYieldDetail",`Para terminar en ${orbeFmt(targetDays)} días con ${targetResources} ${resourceWord}.`);
-  const tbody=orbeEl("scenarioTable");
-  if(!tbody)return;
-  const start=Math.max(1,Math.floor(resources)-2), end=Math.floor(resources)+2;
-  tbody.innerHTML=Array.from({length:end-start+1},(_,i)=>start+i).map(r=>{
-    const people=team?r*peoplePerTeam:r;
-    const prod=R*people*E;
-    const d=Q/prod;
-    const active=r===Math.floor(resources);
-    return `<tr class="${active?"active":""}"><td>${r} ${resourceWord}</td><td>${people}</td><td>${orbeFmt(prod)} ${orbeEscape(unit)}/día</td><td>${orbeFmt(d)} días</td></tr>`;
-  }).join("");
+
+  const activity = state.activities[Number(value)];
+  if(!activity) return;
+
+  if(orbeEl("quantity")) orbeEl("quantity").value = activity.quantity ?? "";
+  if(orbeEl("unit")) orbeEl("unit").value = activity.unit || "";
+
+  const recommendation = scenarioFindYield(activity);
+  if(recommendation){
+    if(orbeEl("yield")) orbeEl("yield").value = recommendation.yield;
+    if(info){
+      info.textContent = `Partida ${activity.id || "—"} · ${activity.name || ""} · Rendimiento del Sheet: ${scenarioFmt(recommendation.yield)} ${activity.unit || recommendation.unit || "unidad"}/persona/día · editable`;
+    }
+  }else{
+    if(orbeEl("yield")) orbeEl("yield").value = "";
+    if(info){
+      info.textContent = `Partida ${activity.id || "—"} · ${activity.name || ""} · Sin rendimiento registrado en RENDIMIENTOS. Ingresa uno manualmente.`;
+    }
+  }
+
+  const suffix = orbeEl("yieldSuffix");
+  if(suffix) suffix.textContent = `${scenarioUnit()} / persona / día`;
+  calculateOrbeScenario();
+}
+
+function renderScenarioPresets(){
+  const box = orbeEl("presetList");
+  if(!box) return;
+  if(!ORBE.presets.length){
+    box.innerHTML = `<span class="muted">Todavía no hay rendimientos guardados. Guarda uno cuando encuentres un dato que quieras reutilizar.</span>`;
+    return;
+  }
+  box.innerHTML = ORBE.presets.map((preset,index)=>`
+    <div class="preset">
+      <span><b>${orbeEscape(preset.name)}</b> · ${scenarioFmt(preset.yield)} ${orbeEscape(preset.unit)}/persona/día</span>
+      <button type="button" data-scenario-preset="${index}">Usar</button>
+    </div>
+  `).join("");
+  box.querySelectorAll("[data-scenario-preset]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const preset = ORBE.presets[Number(button.dataset.scenarioPreset)];
+      if(!preset) return;
+      if(orbeEl("yield")) orbeEl("yield").value = preset.yield;
+      if(orbeEl("unit")) orbeEl("unit").value = preset.unit;
+      setScenarioMode(preset.mode || "individual");
+    });
+  });
+}
+
+function saveScenarioPreset(){
+  const selected = orbeEl("activitySelect")?.selectedOptions?.[0];
+  const defaultName = selected && selected.value !== "" ? selected.textContent.split("—").slice(1).join("—").trim() : "Rendimiento personalizado";
+  const name = prompt("Nombre para este rendimiento:", defaultName);
+  if(!name) return;
+  ORBE.presets.push({name, yield: scenarioNum("yield"), unit: scenarioUnit(), mode: ORBE.scenarioMode});
+  localStorage.setItem("obra_presets", JSON.stringify(ORBE.presets));
+  renderScenarioPresets();
+}
+
+function calculateOrbeScenario(){
+  const Q = scenarioNum("quantity");
+  const R = scenarioNum("yield");
+  const E = Math.max(0.01, scenarioNum("efficiency",100)) / 100;
+  const targetDays = Math.max(0.01, scenarioNum("targetDays",1));
+  const resources = Math.max(1, scenarioNum("resources",1));
+  const targetResources = Math.max(1, scenarioNum("resourcesTarget",1));
+  const peoplePerTeam = Math.max(1, scenarioNum("peoplePerTeam",2));
+  const unit = scenarioUnit();
+  const team = ORBE.scenarioMode === "team";
+  const activePeople = team ? resources * peoplePerTeam : resources;
+  const targetPeople = team ? targetResources * peoplePerTeam : targetResources;
+  const resourceWord = team ? "equipos" : "personas";
+  const resourceSingular = team ? "equipo" : "persona";
+
+  const set = (id,value) => { const el = orbeEl(id); if(el) el.textContent = value; };
+
+  if(Q <= 0 || R <= 0){
+    set("requiredResources","—");
+    set("requiredDetail","Ingresa cantidad y rendimiento.");
+    set("calculatedDays","—");
+    set("productionDetail","Producción: —");
+    set("requiredYield","—");
+    set("requiredYieldDetail","Ingresa cantidad, plazo y recursos.");
+    if(orbeEl("scenarioTable")) orbeEl("scenarioTable").innerHTML = "";
+    return;
+  }
+
+  const dailyProduction = R * activePeople * E;
+  const days = Q / dailyProduction;
+  const rawRequiredPeople = Q / (R * targetDays * E);
+  const requiredPeople = Math.max(1, Math.ceil(rawRequiredPeople));
+  const requiredUnits = team ? Math.max(1, Math.ceil(requiredPeople / peoplePerTeam)) : requiredPeople;
+  const requiredYield = Q / (targetPeople * targetDays * E);
+
+  if(team){
+    set("requiredResources", `${requiredUnits} equipos · ${requiredUnits * peoplePerTeam} pers.`);
+    set("requiredDetail", `${scenarioFmt(rawRequiredPeople)} personas calculadas → ${requiredUnits} equipos de ${peoplePerTeam} personas`);
+  }else{
+    set("requiredResources", `${requiredPeople} personas`);
+    set("requiredDetail", `${scenarioFmt(rawRequiredPeople)} personas → redondeado a ${requiredPeople}`);
+  }
+
+  set("calculatedDays", `${scenarioFmt(days)} días`);
+  set("productionDetail", `Producción: ${scenarioFmt(dailyProduction)} ${unit}/día` + (team ? ` · ${activePeople} personas` : ""));
+  set("requiredYield", `${scenarioFmt(requiredYield)} ${unit}/persona/día`);
+  set("requiredYieldDetail", `Para cumplir ${scenarioFmt(targetDays)} días con ${team ? `${targetResources} equipos` : `${targetResources} personas`}.`);
+
+  const tbody = orbeEl("scenarioTable");
+  if(!tbody) return;
+  const start = Math.max(1, Math.floor(resources) - 2);
+  const end = Math.floor(resources) + 2;
+  const rows = [];
+  for(let r=start;r<=end;r++){
+    const people = team ? r * peoplePerTeam : r;
+    const production = R * people * E;
+    const duration = Q / production;
+    const difference = targetDays ? ((duration-targetDays)/targetDays)*100 : 0;
+    const resourceText = team ? `${r} equipos · ${people} pers.` : `${r} personas`;
+    rows.push(`<tr class="${r === Math.floor(resources) ? "active" : ""}">\n      <td><b>${resourceText}</b></td>\n      <td>${scenarioFmt(production)} ${orbeEscape(unit)}/día</td>\n      <td><b>${scenarioFmt(duration)} días</b></td>\n      <td class="${duration <= targetDays ? "good" : "warn"}">${duration <= targetDays ? "✓ Cumple" : `+${scenarioFmt(difference)}%`}</td>\n    </tr>`);
+  }
+  tbody.innerHTML = rows.join("");
+}
+
+function mountScenarioCalculator(){
+  const select = orbeEl("activitySelect");
+  if(!select) return;
+
+  if(!ORBE.scenarioBound){
+    ORBE.scenarioBound = true;
+    orbeEl("individualBtn")?.addEventListener("click",()=>setScenarioMode("individual"));
+    orbeEl("teamBtn")?.addEventListener("click",()=>setScenarioMode("team"));
+    select.addEventListener("change",loadScenarioActivity);
+    orbeEl("clearActivity")?.addEventListener("click",()=>{select.value="";loadScenarioActivity();});
+    orbeEl("savePreset")?.addEventListener("click",saveScenarioPreset);
+    ["quantity","unit","yield","efficiency","targetDays","resources","resourcesTarget","peoplePerTeam"].forEach(id=>{
+      orbeEl(id)?.addEventListener("input",()=>{
+        if(id === "unit" && orbeEl("yieldSuffix")) orbeEl("yieldSuffix").textContent = `${scenarioUnit()} / persona / día`;
+        calculateOrbeScenario();
+      });
+    });
+  }
+
+  populateScenarioActivities();
+  renderScenarioPresets();
+  setScenarioMode(ORBE.scenarioMode || "individual");
 }
 
 /* =========================================================
@@ -5269,6 +5436,7 @@ function cancelEditPlannerActivity(){
 /* Override add: same original calculation, but updates when editing. */
 const __orbeAddOriginal = addPlannerActivity;
 async function addPlannerActivityFinal(){
+  if(!state.currentProject){ openProjectGate(); alert("Primero crea o abre un proyecto para guardar actividades."); return; }
   if(!ORBE.editId){ return __orbeAddOriginal(); }
   const item=state.plannedActivities.find(x=>String(x.id)===String(ORBE.editId));
   if(!item){ORBE.editId=null;return __orbeAddOriginal();}
@@ -5508,8 +5676,22 @@ function injectFinalVisualStyles(){
   document.head.appendChild(style);
 }
 
+function injectRestoredScenarioExactStyles(){
+  if(document.getElementById("restoredScenarioExactStyles")) return;
+  const style=document.createElement("style");
+  style.id="restoredScenarioExactStyles";
+  style.textContent=`
+    ${scoped_core}
+    ${scoped_resp}
+    #view-escenarios .project-skip{display:inline-flex;align-items:center;justify-content:center;margin-top:18px;padding:8px 0;border:0;background:transparent;color:#7b837d;font:700 10px "DM Mono",monospace;cursor:pointer}
+    #view-escenarios .project-skip:hover{color:#5f681f}
+  `;
+  document.head.appendChild(style);
+}
+
 function installFinalPatch(){
   injectFinalVisualStyles();
+  injectRestoredScenarioExactStyles();
   mountScenarioCalculator();
   refreshEmployeeAvailability();
   /* Rebind button because original bindEvents captured the old function. */
@@ -5528,6 +5710,8 @@ function installFinalPatch(){
     availability:employeeBusyAcrossProjects
   };
   window.employeeBusyAcrossProjects = employeeBusyAcrossProjects;
+  window.refreshScenarioActivities = populateScenarioActivities;
+  try{ populateScenarioActivities(); }catch(e){ console.warn(e); }
   renderCriticalPath();
 }
 
