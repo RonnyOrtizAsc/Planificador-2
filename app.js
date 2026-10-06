@@ -489,66 +489,42 @@ function normalizeActivity(raw) {
 
 function normalizeEmployee(raw) {
 
-  const getField = (names) => {
-
-    const wanted =
-      names.map(name =>
-        String(name)
-          .replace(/\uFEFF/g, "")
-          .trim()
-          .toLowerCase()
-      );
-
-    const entry =
-      Object.entries(raw || {}).find(
-        ([key]) =>
-          wanted.includes(
-            String(key)
-              .replace(/\uFEFF/g, "")
-              .trim()
-              .toLowerCase()
-          )
-      );
-
-    return entry
-      ? entry[1]
-      : "";
-  };
-
-
   return {
 
     id:
       String(
-        getField([
-          "ID"
-        ])
+        raw.ID ??
+        raw.id ??
+        ""
       ).trim(),
 
     name:
       String(
-        getField([
-          "NOMBRE",
-          "NOMBRE COMPLETO"
-        ])
+        raw.NOMBRE ??
+        raw.nombre ??
+        raw.Nombre ??
+        raw["NOMBRE COMPLETO"] ??
+        ""
       ).trim(),
 
     trade:
       String(
-        getField([
-          "OFICIO",
-          "OFICIO ",
-          "ESPECIALIDAD",
-          "PUESTO"
-        ])
+        raw.OFICIO ??
+        raw.oficio ??
+        raw.Oficio ??
+        raw["OFICIO "] ??
+        raw["ESPECIALIDAD"] ??
+        raw["PUESTO"] ??
+        ""
       ).trim(),
 
     role:
       String(
-        getField([
-          "ROL",
-          "CARGO"
-        ])
+        raw.ROL ??
+        raw.rol ??
+        raw.Rol ??
+        raw["CARGO"] ??
+        ""
       ).trim()
 
   };
