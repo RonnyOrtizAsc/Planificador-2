@@ -1648,8 +1648,8 @@ function syncShiftButtons() {
   }
 
   const value =
-    select.value ||
-    "Diurno";
+    select.value || "Diurno";
+
 
   document
     .querySelectorAll(
@@ -1747,9 +1747,12 @@ function injectShiftControl() {
       .forEach(
         button => {
 
-          button.addEventListener(
-            "click",
-            () => {
+          button.onclick =
+            event => {
+
+              event.preventDefault();
+              event.stopPropagation();
+
 
               const clicked =
                 button.dataset.shift;
@@ -1772,7 +1775,8 @@ function injectShiftControl() {
                 current === clicked
               ) {
 
-                return;
+                select.value =
+                  clicked;
 
               } else {
 
@@ -1783,11 +1787,13 @@ function injectShiftControl() {
 
               syncShiftButtons();
 
+              state._availabilityShift =
+                select.value;
+
               calculatePlannerRequirement();
 
               renderEmployeeSelector();
-            }
-          );
+            };
         }
       );
   }
