@@ -6396,8 +6396,7 @@ function ensureDependencyPicker(){
   }
 
   /*
-   * IMPORTANTE:
-   * Ya no usamos <select multiple>.
+   * Selector simple.
    * Cada selección se agrega a la lista
    * de dependencias debajo.
    */
@@ -6412,35 +6411,12 @@ function ensureDependencyPicker(){
   select.dataset.v5DependencyPicker =
     "1";
 
-  if(
-    !select.dataset.dependencyLinks
-  ){
+  if(!select.dataset.dependencyLinks){
+
     select.dataset.dependencyLinks =
       "[]";
+
   }
-
-
-  let help =
-    $("plannerDependencyHelp");
-
-  if(!help){
-
-    help =
-      document.createElement(
-        "small"
-      );
-
-    help.id =
-      "plannerDependencyHelp";
-
-    select.parentElement?.appendChild(
-      help
-    );
-  }
-
-  help.textContent =
-    "Selecciona una actividad para agregarla como dependencia. Puedes agregar varias.";
-
 
   let rules =
     $("plannerDependencyRules");
@@ -6460,7 +6436,6 @@ function ensureDependencyPicker(){
     );
   }
 
-
   select.removeEventListener(
     "change",
     addDependencyFromPicker
@@ -6471,11 +6446,8 @@ function ensureDependencyPicker(){
     addDependencyFromPicker
   );
 
-
   return select;
 }
-
-
 /* =========================================================
    AGREGAR UNA DEPENDENCIA DESDE EL SELECT
 ========================================================= */
@@ -6677,19 +6649,20 @@ function renderDependencyRules(){
     return;
   }
 
-
   const links =
     readDependencyPickerLinks();
 
-
   rules.innerHTML = "";
 
-if(!links.length){
+  /*
+   * Si no hay dependencias,
+   * simplemente no mostramos nada.
+   */
 
-  rules.innerHTML = "";
+  if(!links.length){
+    return;
+  }
 
-  return;
-}
 
   links.forEach(
     link => {
@@ -6732,86 +6705,42 @@ if(!links.length){
 
       /* RELACIÓN */
 
-      const type =
+      const relation =
         document.createElement(
-          "select"
+          "div"
         );
 
-      type.className =
-        "planner-dep-type";
-
-      type.dataset.depId =
-        activity.id;
-
-      type.innerHTML = `
-
-        <option value="FS">
-          Empezar después de que termine
-        </option>
-
-        <option value="SS">
-          Empezar cuando empiece
-        </option>
-
-        <option value="FF">
-          Terminar cuando termine
-        </option>
-
-      `;
+      relation.className =
+        "planner-dependency-relation";
 
 
-      type.value =
-        ["FS","SS","FF"].includes(
-          String(link.type)
-            .toUpperCase()
-        )
-          ? String(
-              link.type
-            ).toUpperCase()
-          : "FS";
+      const type =
+        String(
+          link.type || "FS"
+        ).toUpperCase();
 
 
-      type.addEventListener(
-        "change",
-        () => {
+      if(type === "SS"){
 
-          const updated =
-            readDependencyPickerLinks();
+        relation.textContent =
+          "Empieza junto con esta actividad";
 
+      }else if(type === "FF"){
 
-          const target =
-            updated.find(
-              dep =>
-                String(dep.id) ===
-                String(activity.id)
-            );
+        relation.textContent =
+          "Termina junto con esta actividad";
 
+      }else{
 
-          if(target){
+        relation.textContent =
+          "Espera a que termine";
 
-            target.type =
-              type.value;
-
-          }
+      }
 
 
-          const select =
-            $("plannerDependency");
-
-          if(select){
-
-            select.dataset.dependencyLinks =
-              JSON.stringify(
-                updated
-              );
-
-          }
-
-        }
-      );
-
-
-      /* ELIMINAR */
+      /*
+       * ELIMINAR
+       */
 
       const remove =
         document.createElement(
@@ -6857,7 +6786,7 @@ if(!links.length){
       );
 
       row.appendChild(
-        type
+        relation
       );
 
       row.appendChild(
