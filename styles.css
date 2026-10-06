@@ -2061,3 +2061,376 @@ footer{
     grid-template-columns:1fr !important;
   }
 }
+/* =========================================================
+   PROJECT GATE — CORRECCIÓN VISUAL
+========================================================= */
+
+.project-gate{
+  position:fixed !important;
+  inset:0 !important;
+  width:100vw !important;
+  height:100vh !important;
+  background:rgba(11,13,16,.96) !important;
+  z-index:5000 !important;
+  display:grid !important;
+  place-items:center !important;
+  padding:24px !important;
+  overflow:auto !important;
+}
+
+.project-gate[hidden]{
+  display:none !important;
+}
+
+.project-gate-card{
+  width:min(760px,100%) !important;
+  background:#fff !important;
+  border-radius:20px !important;
+  padding:30px !important;
+  box-shadow:0 30px 90px rgba(0,0,0,.35) !important;
+}
+
+.project-gate-brand{
+  display:flex !important;
+  align-items:center !important;
+  gap:11px !important;
+  margin-bottom:35px !important;
+}
+
+.project-gate-mark{
+  width:40px !important;
+  height:40px !important;
+  border-radius:10px !important;
+  background:var(--lime) !important;
+  display:grid !important;
+  place-items:center !important;
+  font-size:11px !important;
+  font-weight:900 !important;
+}
+
+.project-gate-brand strong,
+.project-gate-brand span{
+  display:block !important;
+}
+
+.project-gate-brand strong{
+  font-size:14px !important;
+}
+
+.project-gate-brand span{
+  font-size:10px !important;
+  color:#858b87 !important;
+}
+
+.project-gate-kicker{
+  font:700 9px "DM Mono",monospace !important;
+  letter-spacing:.15em !important;
+  color:#7c837e !important;
+  margin-bottom:8px !important;
+}
+
+.project-gate-card h1{
+  font-size:35px !important;
+  margin:0 0 10px !important;
+  max-width:600px !important;
+}
+
+.project-gate-card p{
+  color:#737875 !important;
+  font-size:12px !important;
+  line-height:1.6 !important;
+}
+
+.project-choice-grid{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+  margin-top:28px !important;
+}
+
+.project-choice{
+  appearance:none !important;
+  text-align:left !important;
+  background:#f7f8f6 !important;
+  border:1px solid #e0e4e0 !important;
+  border-radius:13px !important;
+  padding:20px !important;
+  display:grid !important;
+  gap:5px !important;
+  color:var(--ink) !important;
+  cursor:pointer !important;
+}
+
+.project-choice:hover{
+  border-color:#c8d7a4 !important;
+  transform:translateY(-1px);
+}
+
+.project-choice.primary{
+  background:var(--dark) !important;
+  color:#fff !important;
+  border-color:var(--dark) !important;
+}
+
+.project-choice b{
+  font-size:20px !important;
+  color:var(--lime) !important;
+}
+
+.project-choice strong{
+  font-size:13px !important;
+}
+
+.project-choice span{
+  font-size:10px !important;
+  color:#8a908c !important;
+}
+
+.project-choice.primary span{
+  color:#aeb4b0 !important;
+}
+
+.project-fields{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:14px !important;
+  margin:25px 0 !important;
+}
+
+.project-fields label{
+  display:grid !important;
+  gap:7px !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+  text-transform:uppercase !important;
+  color:#6e756f !important;
+}
+
+.project-fields input,
+.project-fields select{
+  height:42px !important;
+  border:1px solid #dfe3df !important;
+  border-radius:8px !important;
+  padding:0 11px !important;
+  font-size:11px !important;
+  background:#fff !important;
+}
+
+.project-submit{
+  width:100% !important;
+  height:44px !important;
+  border:0 !important;
+  border-radius:9px !important;
+  background:var(--dark) !important;
+  color:#fff !important;
+  font-weight:800 !important;
+  font-size:10px !important;
+}
+
+.project-back{
+  border:0 !important;
+  background:transparent !important;
+  padding:0 !important;
+  margin-bottom:25px !important;
+  color:#747b76 !important;
+  font-size:10px !important;
+  font-weight:700 !important;
+}
+
+@media(max-width:800px){
+  .project-choice-grid,
+  .project-fields{
+    grid-template-columns:1fr !important;
+  }
+
+  .project-gate-card{
+    padding:22px !important;
+  }
+
+  .project-gate-card h1{
+    font-size:29px !important;
+  }
+}
+/* =========================================================
+   EMPLEADOS + TURNOS
+========================================================= */
+
+.employee-selector-toolbar{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  padding:5px 4px 9px !important;
+}
+
+.employee-selector-toolbar span{
+  margin-right:auto !important;
+  color:#737b75 !important;
+  font-size:10px !important;
+}
+
+.employee-selector-toolbar button{
+  border:0 !important;
+  background:transparent !important;
+  color:#66751f !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+  cursor:pointer !important;
+  padding:4px 2px !important;
+}
+
+.employee-list{
+  display:grid !important;
+  grid-template-columns:repeat(
+    auto-fill,
+    minmax(205px,1fr)
+  ) !important;
+  gap:8px !important;
+}
+
+.employee-option{
+  position:relative !important;
+  display:grid !important;
+  grid-template-columns:
+    34px minmax(0,1fr) 18px !important;
+  grid-template-rows:auto auto auto !important;
+  align-items:center !important;
+  column-gap:9px !important;
+  min-height:70px !important;
+  padding:10px 11px !important;
+  border:1px solid #d9dee8 !important;
+  border-radius:8px !important;
+  background:#fff !important;
+  cursor:pointer !important;
+}
+
+.employee-option:hover{
+  border-color:#b7c6e5 !important;
+}
+
+.employee-option:has(input:checked){
+  background:#f1f5e8 !important;
+  border-color:#bfd38a !important;
+}
+
+.employee-option input{
+  grid-column:3 !important;
+  grid-row:1 / span 3 !important;
+  width:18px !important;
+  height:18px !important;
+  margin:0 !important;
+}
+
+.employee-avatar{
+  grid-column:1 !important;
+  grid-row:1 / span 3 !important;
+  width:32px !important;
+  height:32px !important;
+  border-radius:50% !important;
+  background:#eef1ef !important;
+  display:grid !important;
+  place-items:center !important;
+  font:800 9px "DM Mono",monospace !important;
+}
+
+.employee-text{
+  grid-column:2 !important;
+  min-width:0 !important;
+  display:grid !important;
+  gap:2px !important;
+}
+
+.employee-text strong{
+  font-size:10px !important;
+}
+
+.employee-text small{
+  font-size:8px !important;
+  color:#68716b !important;
+}
+
+.employee-availability{
+  display:flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  font-size:8px !important;
+  font-style:normal !important;
+  color:#5c9a54 !important;
+}
+
+.employee-availability i{
+  width:5px !important;
+  height:5px !important;
+  border-radius:50% !important;
+  background:#68b760 !important;
+}
+
+.employee-availability.busy{
+  color:#a25b55 !important;
+}
+
+.employee-availability.busy i{
+  background:#c96d62 !important;
+}
+
+.shift-control{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:6px !important;
+  padding:4px !important;
+  border:1px solid #dfe3df !important;
+  border-radius:9px !important;
+  background:#f7f8f6 !important;
+}
+
+.shift-option{
+  border:0 !important;
+  background:transparent !important;
+  border-radius:7px !important;
+  padding:8px 10px !important;
+  display:grid !important;
+  grid-template-columns:18px 1fr !important;
+  grid-template-rows:auto auto !important;
+  column-gap:7px !important;
+  align-items:center !important;
+  text-align:left !important;
+  color:#68716b !important;
+  cursor:pointer !important;
+}
+
+.shift-option > span{
+  grid-row:1 / span 2 !important;
+  width:18px !important;
+  height:18px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:6px !important;
+  background:#fff !important;
+}
+
+.shift-option b{
+  font-size:9px !important;
+}
+
+.shift-option small{
+  font-size:7px !important;
+  color:#8b938d !important;
+}
+
+.shift-option.active{
+  background:#fff !important;
+  color:var(--dark) !important;
+  box-shadow:0 1px 3px rgba(11,13,16,.08) !important;
+}
+
+.shift-option.active > span{
+  background:var(--lime) !important;
+  color:var(--dark) !important;
+}
+
+.shift-native-hidden{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
