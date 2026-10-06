@@ -4976,12 +4976,16 @@ function bindEvents() {
     );
 
 
-  $("addPlannerActivity")
-    ?.addEventListener(
-      "click",
-      addPlannerActivity
-    );
+const addButton = $("addPlannerActivity");
 
+if (addButton) {
+  addButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    await addPlannerActivity();
+  });
+}
 
   $("clearPlannerActivity")
     ?.addEventListener(
