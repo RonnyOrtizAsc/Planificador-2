@@ -1892,3 +1892,327 @@ footer{
 .employee-card{border:1px solid #e0e4e0;border-radius:10px;padding:10px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:9px;min-width:150px}.employee-card.selected{background:#f1f5e8;border-color:#c8d98e}.employee-card .avatar{width:28px;height:28px;border-radius:8px;background:#eef0ee;display:grid;place-items:center;font-size:9px;font-weight:900}.employee-card.selected .avatar{background:var(--lime)}.employee-card .employee-meta{display:grid;gap:2px}.employee-card strong{font-size:9px}.employee-card span{font-size:8px;color:#858c87}.employee-card-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px;padding:7px}.employee-select-head{display:flex;justify-content:space-between;align-items:center;padding:5px 7px;border-bottom:1px solid #eef0ee}.employee-select-head button{border:0;background:transparent;color:#66701f;font-size:9px;font-weight:800}
 .planner-row-actions{display:flex;gap:5px}.planner-row-actions button{border:1px solid #dfe3df;background:#fff;border-radius:6px;padding:5px 7px;font-size:9px}.planner-row-actions .delete{color:#b44a4a}
 @media(max-width:800px){.project-choice-grid,.project-fields{grid-template-columns:1fr}.project-gate-card{padding:22px}.project-gate-card h1{font-size:29px}}
+
+/* =========================================================
+   ORBE — CORRECCIÓN VISUAL: EMPLEADOS + ESCENARIOS
+========================================================= */
+
+/* ---------- SELECTOR DE EMPLEADOS ---------- */
+
+.employee-selector-toolbar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 0 10px;
+  font-size:11px;
+  color:#777;
+}
+
+.employee-selector-toolbar span{
+  margin-right:auto;
+}
+
+.employee-selector-toolbar button{
+  border:1px solid #d9ddd8;
+  background:#fff;
+  color:#333;
+  border-radius:6px;
+  padding:6px 9px;
+  font-size:10px;
+  cursor:pointer;
+}
+
+.employee-selector-toolbar button:hover{
+  background:#f3f5ef;
+}
+
+.employee-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:8px;
+}
+
+.employee-option{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:48px;
+  box-sizing:border-box;
+  padding:9px 11px;
+  border:1px solid #dedfdb;
+  border-radius:9px;
+  background:#fff;
+  cursor:pointer;
+  transition:.15s ease;
+}
+
+.employee-option:hover{
+  border-color:#aebc7c;
+  background:#fafbf7;
+}
+
+.employee-option:has(input:checked){
+  border-color:#9dbb32;
+  background:#f4f8e9;
+  box-shadow:inset 3px 0 0 #9dbb32;
+}
+
+.employee-option input{
+  width:16px;
+  height:16px;
+  margin:0;
+  flex:0 0 16px;
+  accent-color:#91ae28;
+}
+
+.employee-option span{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  min-width:0;
+}
+
+.employee-option strong{
+  font-size:11px;
+  line-height:1.1;
+  color:#222;
+  font-weight:700;
+}
+
+.employee-option small{
+  font-size:9px;
+  color:#858b84;
+  line-height:1.1;
+}
+
+
+/* ---------- CALCULADORA ---------- */
+
+#orbeScenarioCalculator{
+  width:100%;
+  max-width:1100px;
+  margin:25px auto 60px;
+}
+
+.orbe-calc-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:30px;
+  padding-bottom:22px;
+  border-bottom:1px solid #dfe2dd;
+}
+
+.orbe-calc-kicker{
+  display:block;
+  margin-bottom:8px;
+  font-family:"DM Mono",monospace;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.12em;
+  color:#81922e;
+}
+
+.orbe-calc-head h3{
+  margin:0 0 7px;
+  font-size:22px;
+  color:#171918;
+}
+
+.orbe-calc-head p{
+  margin:0;
+  max-width:600px;
+  font-size:12px;
+  color:#7c837d;
+}
+
+
+/* ---------- BOTÓN INDIVIDUAL / EQUIPO ---------- */
+
+.orbe-mode-toggle{
+  display:flex;
+  gap:4px;
+  padding:4px;
+  border:1px solid #dfe2dd;
+  border-radius:9px;
+  background:#f5f6f3;
+}
+
+.orbe-mode-toggle button{
+  border:0;
+  background:transparent;
+  border-radius:6px;
+  padding:8px 14px;
+  font-size:11px;
+  font-weight:700;
+  color:#727872;
+  cursor:pointer;
+}
+
+.orbe-mode-toggle button.active{
+  background:#20231f;
+  color:#fff;
+}
+
+
+/* ---------- CAMPOS ---------- */
+
+.orbe-calc-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px;
+  margin-top:22px;
+}
+
+.orbe-calc-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:10px;
+  font-weight:700;
+  color:#626962;
+}
+
+.orbe-calc-grid input{
+  width:100%;
+  box-sizing:border-box;
+  height:38px;
+  padding:0 10px;
+  border:1px solid #d7dbd5;
+  border-radius:7px;
+  background:#fff;
+  color:#20231f;
+  font:500 12px "DM Sans",sans-serif;
+  outline:none;
+}
+
+.orbe-calc-grid input:focus{
+  border-color:#9dbb32;
+  box-shadow:0 0 0 2px rgba(157,187,50,.12);
+}
+
+.orbe-calc-grid small{
+  margin-top:-2px;
+  font-size:9px;
+  font-weight:400;
+  color:#929791;
+}
+
+
+/* ---------- RESULTADOS ---------- */
+
+.orbe-results{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin-top:18px;
+}
+
+.orbe-results article{
+  min-height:115px;
+  box-sizing:border-box;
+  padding:17px;
+  border:1px solid #dfe2dd;
+  border-radius:10px;
+  background:#fff;
+}
+
+.orbe-results article span{
+  display:block;
+  margin-bottom:12px;
+  font-family:"DM Mono",monospace;
+  font-size:8px;
+  font-weight:700;
+  letter-spacing:.08em;
+  color:#808780;
+}
+
+.orbe-results article strong{
+  display:block;
+  margin-bottom:7px;
+  font-size:25px;
+  line-height:1;
+  color:#171918;
+}
+
+.orbe-results article small{
+  display:block;
+  font-size:9px;
+  line-height:1.4;
+  color:#858b85;
+}
+
+
+/* ---------- TABLA ---------- */
+
+.orbe-scenario-table-wrap{
+  margin-top:18px;
+  border:1px solid #dfe2dd;
+  border-radius:10px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.orbe-table-title{
+  padding:13px 15px;
+  border-bottom:1px solid #e7e9e5;
+  font-size:11px;
+  font-weight:700;
+  color:#333832;
+}
+
+.orbe-scenario-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:10px;
+}
+
+.orbe-scenario-table th{
+  padding:10px 12px;
+  background:#f5f6f3;
+  text-align:left;
+  font-family:"DM Mono",monospace;
+  font-size:8px;
+  letter-spacing:.05em;
+  color:#7c837d;
+}
+
+.orbe-scenario-table td{
+  padding:11px 12px;
+  border-top:1px solid #eef0ed;
+  color:#444a45;
+}
+
+.orbe-scenario-table tbody tr:hover{
+  background:#fafbf8;
+}
+
+
+/* ---------- RESPONSIVE ---------- */
+
+@media(max-width:850px){
+
+  .orbe-calc-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .orbe-calc-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .orbe-results{
+    grid-template-columns:1fr;
+  }
+}
+
+@media(max-width:550px){
+
+  .orbe-calc-grid{
+    grid-template-columns:1fr;
+  }
+
+  .employee-list{
+    grid-template-columns:1fr;
+  }
+}
