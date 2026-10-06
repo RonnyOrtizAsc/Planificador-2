@@ -489,30 +489,68 @@ function normalizeActivity(raw) {
 
 function normalizeEmployee(raw) {
 
+  const getField = (names) => {
+
+    const wanted =
+      names.map(name =>
+        String(name)
+          .replace(/\uFEFF/g, "")
+          .trim()
+          .toLowerCase()
+      );
+
+    const entry =
+      Object.entries(raw || {}).find(
+        ([key]) =>
+          wanted.includes(
+            String(key)
+              .replace(/\uFEFF/g, "")
+              .trim()
+              .toLowerCase()
+          )
+      );
+
+    return entry
+      ? entry[1]
+      : "";
+  };
+
+
   return {
 
     id:
-      raw.ID ??
-      raw.id ??
-      "",
+      String(
+        getField([
+          "ID"
+        ])
+      ).trim(),
 
     name:
-      raw.NOMBRE ??
-      raw.nombre ??
-      raw.Nombre ??
-      "",
+      String(
+        getField([
+          "NOMBRE",
+          "NOMBRE COMPLETO"
+        ])
+      ).trim(),
 
     trade:
-      raw.OFICIO ??
-      raw.oficio ??
-      raw.Oficio ??
-      "",
+      String(
+        getField([
+          "OFICIO",
+          "OFICIO ",
+          "ESPECIALIDAD",
+          "PUESTO"
+        ])
+      ).trim(),
 
     role:
-      raw.ROL ??
-      raw.rol ??
-      raw.Rol ??
-      ""
+      String(
+        getField([
+          "ROL",
+          "CARGO"
+        ])
+      ).trim()
+
   };
 }
 
@@ -1539,9 +1577,8 @@ function calculatePlannerRequirement() {
 
 
   const recommendation =
-    findYield(
-      activity
-    );
+    findYield(activity) ||
+    getLegacyRecommendedYield(activity);
 
 
   const enteredDays =
@@ -1578,12 +1615,32 @@ function calculatePlannerRequirement() {
       );
 
 
-    const rawDuration = number($("plannerDuration")?.value, enteredDays);
-    const durationUnit = $("plannerDurationUnit")?.value || "dias";
-    const unitLabel = durationUnit === "semanas" ? "semana(s)" : durationUnit === "horas" ? "hora(s)" : "día(s)";
+    const rawDuration =
+      number(
+        $("plannerDuration")?.value,
+        enteredDays
+      );
+
+    const durationUnit =
+      $("plannerDurationUnit")?.value ||
+      "dias";
+
+    const unitLabel =
+      durationUnit === "semanas"
+        ? "semana(s)"
+        : durationUnit === "horas"
+          ? "hora(s)"
+          : "día(s)";
+
 
     info.textContent =
-      `Necesitas al menos ${needed} empleado(s) para completar la actividad en ${formatCompact(rawDuration)} ${unitLabel}.`;
+      `Necesitas al menos ${needed} ${
+        needed === 1
+          ? "empleado"
+          : "empleados"
+      } para completar la actividad en ${
+        formatCompact(rawDuration)
+      } ${unitLabel}.`;
 
     return;
   }
@@ -1598,14 +1655,17 @@ function calculatePlannerRequirement() {
         activity,
         recommendation
       );
-    const estimatedDays = Math.max(1, Math.ceil(duration));
-    const shift = $("plannerShift")?.value || "Diurno";
-    const hoursPerDay = shift === "Ambos" ? 15 : shift === "Nocturno" ? 7 : 8;
-    const estimatedHours = Math.ceil(duration * hoursPerDay);
-    const estimatedWeeks = Math.max(0.1, duration / 5);
+
+
+    const estimatedDays =
+      Math.max(
+        1,
+        Math.ceil(duration)
+      );
+
 
     info.textContent =
-      `Con: ${state.selectedEmployees.length} personas · duración estimada ${estimatedDays} día(s) · ≈ ${estimatedHours} h · ≈ ${estimatedWeeks.toFixed(1)} semana(s).`;
+      `Con: ${state.selectedEmployees.length} personas · duración estimada ${estimatedDays} día(s).`;
 
     return;
   }
@@ -1616,8 +1676,6 @@ function calculatePlannerRequirement() {
       recommendation.yield
     )} ${activity.unit}/persona/día.`;
 }
-
-
 function clearActivityForm(
   clearActivity = true
 ) {
@@ -5677,18 +5735,8 @@ function injectFinalVisualStyles(){
 }
 
 function injectRestoredScenarioExactStyles(){
-  if(document.getElementById("restoredScenarioExactStyles")) return;
-  const style=document.createElement("style");
-  style.id="restoredScenarioExactStyles";
-  style.textContent=`
-    ${scoped_core}
-    ${scoped_resp}
-    #view-escenarios .project-skip{display:inline-flex;align-items:center;justify-content:center;margin-top:18px;padding:8px 0;border:0;background:transparent;color:#7b837d;font:700 10px "DM Mono",monospace;cursor:pointer}
-    #view-escenarios .project-skip:hover{color:#5f681f}
-  `;
-  document.head.appendChild(style);
+  return;
 }
-
 function installFinalPatch(){
   injectFinalVisualStyles();
   injectRestoredScenarioExactStyles();
