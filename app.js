@@ -11,7 +11,7 @@
 
 const CONFIG = {
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbyAqENSTowcz0qeIR8CctJIAhzFWP2_TusGS-7j-MG2BYvd3rIABdvfubDkh5jpKNrZPg/exec",
+    "https://script.google.com/macros/s/AKfycbzQp5bAz8gyBzPGQudNJA2LdoZ9NB7VDMWXsF9c7KJ1BNFG7j-QAjRdu1XVmD-lNkqcLA/exec",
 
   projectStart: "2026-10-16"
 };
@@ -29,6 +29,7 @@ const state = {
 
   plannedActivities: [],
   selectedEmployees: [],
+  editingPlanId: "",
 
   currentProject: null,
 
@@ -58,14 +59,14 @@ function number(value, fallback = 0) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
 
-  let text = String(value).trim().replace(/\\s/g, "");
+  let text = String(value).trim().replace(/\s/g, "");
   if (!text) return fallback;
 
   if (text.includes(",") && text.includes(".")) {
     const lastComma = text.lastIndexOf(",");
     const lastDot = text.lastIndexOf(".");
     if (lastComma > lastDot) {
-      text = text.replace(/\\./g, "").replace(",", ".");
+      text = text.replace(/\./g, "").replace(",", ".");
     } else {
       text = text.replace(/,/g, "");
     }
@@ -118,13 +119,13 @@ function parseDate(value) {
   const text = String(value).trim();
   let y, m, d;
 
-  let match = text.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/);
+  let match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
   if (match) {
     y = Number(match[1]); m = Number(match[2]); d = Number(match[3]);
     return new Date(y, m - 1, d);
   }
 
-  match = text.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})/);
+  match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
   if (match) {
     d = Number(match[1]); m = Number(match[2]); y = Number(match[3]);
     return new Date(y, m - 1, d);
@@ -232,6 +233,18 @@ function daysBetween(start, end) {
       (b - a) / 86400000
     ) + 1
   );
+}
+
+function workingDaysBetween(start, end) {
+  let a = nextWorkingDay(start);
+  const b = parseDate(end);
+  if (!a || !b || a > b) return 0;
+  let count = 0;
+  while (a <= b) {
+    if (isWorkingDay(a)) count++;
+    a = addDays(a, 1);
+  }
+  return count;
 }
 
 
@@ -1246,6 +1259,8 @@ function renderEmployeeSelector() {
       checkbox.type =
         "checkbox";
 
+      checkbox.value =
+        employee.id || "";
 
       checkbox.checked =
         state.selectedEmployees.some(
@@ -1308,37 +1323,31 @@ function renderEmployeeSelector() {
       );
 
 
-      const text =
-        document.createElement(
-          "span"
-        );
+      const preview = getPreviewRange();
+      const shift = $("plannerShift")?.value || "Diurno";
+      state._availabilityShift = shift;
+      const busy = preview && typeof window.employeeBusyAcrossProjects === "function"
+        ? window.employeeBusyAcrossProjects(employee.id, preview.start, preview.end, state.editingPlanId || "")
+        : false;
+      const initials = String(employee.name || "?").split(/\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join("").toUpperCase();
 
+      const avatar = document.createElement("span");
+      avatar.className = "employee-avatar";
+      avatar.textContent = initials || "?";
 
-      text.innerHTML =
-        `
-          <strong>
-            ${escapeHTML(
-              employee.name
-            )}
-          </strong>
+      const text = document.createElement("span");
+      text.className = "employee-text";
+      text.innerHTML = `
+        <strong>${escapeHTML(employee.name)}</strong>
+        <small>${escapeHTML(employee.trade || employee.role || "Sin oficio")}</small>
+        <em class="employee-availability ${busy ? "busy" : "available"}">
+          <i></i>${preview ? (busy ? "Ocupado" : "Disponible") : "Disponibilidad al planificar"}
+        </em>
+      `;
 
-          <small>
-            ${escapeHTML(
-              employee.trade ||
-              employee.role ||
-              "Sin oficio"
-            )}
-          </small>
-        `;
-
-
-      label.appendChild(
-        checkbox
-      );
-
-      label.appendChild(
-        text
-      );
+      label.appendChild(checkbox);
+      label.appendChild(avatar);
+      label.appendChild(text);
 
       list.appendChild(
         label
@@ -1457,7 +1466,7 @@ function getInputDurationDays() {
     unit === "semanas"
   ) {
 
-    return raw * 7;
+    return raw * 5;
   }
 
 
@@ -1465,14 +1474,14 @@ function getInputDurationDays() {
     unit === "horas"
   ) {
 
-    return (
-      raw /
-      (
-        shift === "Nocturno"
+    const hoursPerDay =
+      shift === "Ambos"
+        ? 15
+        : shift === "Nocturno"
           ? 7
-          : 8
-      )
-    );
+          : 8;
+
+    return raw / hoursPerDay;
   }
 
 
@@ -1566,10 +1575,12 @@ function calculatePlannerRequirement() {
       );
 
 
+    const rawDuration = number($("plannerDuration")?.value, enteredDays);
+    const durationUnit = $("plannerDurationUnit")?.value || "dias";
+    const unitLabel = durationUnit === "semanas" ? "semana(s)" : durationUnit === "horas" ? "hora(s)" : "día(s)";
+
     info.textContent =
-      `Necesitas al menos ${needed} empleado(s) para completar la actividad en ${formatCompact(
-        enteredDays
-      )} día(s).`;
+      `Necesitas al menos ${needed} empleado(s) para completar la actividad en ${formatCompact(rawDuration)} ${unitLabel}.`;
 
     return;
   }
@@ -1584,13 +1595,14 @@ function calculatePlannerRequirement() {
         activity,
         recommendation
       );
-
+    const estimatedDays = Math.max(1, Math.ceil(duration));
+    const shift = $("plannerShift")?.value || "Diurno";
+    const hoursPerDay = shift === "Ambos" ? 15 : shift === "Nocturno" ? 7 : 8;
+    const estimatedHours = Math.ceil(duration * hoursPerDay);
+    const estimatedWeeks = Math.max(0.1, duration / 5);
 
     info.textContent =
-      `Con: ${state.selectedEmployees.length} personas · duración estimada ${Math.max(
-        1,
-        Math.ceil(duration)
-      )} día(s).`;
+      `Con: ${state.selectedEmployees.length} personas · duración estimada ${estimatedDays} día(s) · ≈ ${estimatedHours} h · ≈ ${estimatedWeeks.toFixed(1)} semana(s).`;
 
     return;
   }
@@ -1664,6 +1676,10 @@ function clearActivityForm(
 function injectShiftControl() {
 
   if ($("plannerShift")) {
+    const select = $("plannerShift");
+    if (!select.querySelector('option[value="Ambos"]')) {
+      select.insertAdjacentHTML("beforeend", '<option value="Ambos">☀️🌙 Ambos · 09:00–24:00</option>');
+    }
     return;
   }
 
@@ -1873,6 +1889,34 @@ function calculateStartDate() {
     CONFIG.projectStart
   );
 }
+
+function validateProjectEnd(end) {
+  const projectEnd = parseDate(state.currentProject?.end);
+  const activityEnd = parseDate(end);
+  if (!projectEnd || !activityEnd) return true;
+  return activityEnd <= projectEnd;
+}
+
+function getProjectEndMessage(end) {
+  const projectEnd = parseDate(state.currentProject?.end);
+  const activityEnd = parseDate(end);
+  if (!projectEnd || !activityEnd || activityEnd <= projectEnd) return "";
+  return `La actividad termina el ${formatDate(activityEnd)}, después del fin del proyecto (${formatDate(projectEnd)}).`;
+}
+
+function getPreviewRange() {
+  const activity = state.activities[Number($("plannerActivity")?.value)];
+  if (!activity) return null;
+  const recommendation = findYield(activity);
+  if (!recommendation?.yield) return null;
+  const entered = getInputDurationDays();
+  const estimated = estimateDuration(activity, recommendation);
+  const duration = Math.max(1, Math.ceil(entered > 0 ? entered : estimated));
+  const start = calculateStartDate();
+  const end = addWorkDays(start, duration - 1);
+  return { start, end };
+}
+
 
 
 /* =========================================================
@@ -2131,6 +2175,11 @@ async function addPlannerActivity() {
         )
       ) - 1
     );
+
+  if (!validateProjectEnd(end)) {
+    alert(getProjectEndMessage(end));
+    return;
+  }
 
   if(alertBusyEmployees(start,end,"")){
     return;
@@ -2421,146 +2470,35 @@ function recalculateAllDates() {
 ========================================================= */
 
 function renderDependencyScheme() {
-
-  const container =
-    $("dependencyScheme");
-
-  if (!container) {
+  const container = $("dependencyScheme");
+  if (!container) return;
+  const activities = state.plannedActivities || [];
+  if (!activities.length) {
+    container.innerHTML = `<div class="visual-empty"><span>01</span><strong>Todavía no hay actividades planificadas</strong><p>Agrega una actividad para comenzar.</p></div>`;
     return;
   }
-
-
-  if (
-    !state.plannedActivities.length
-  ) {
-
-    container.innerHTML =
-      `
-        <div class="visual-empty">
-
-          <span>
-            01
-          </span>
-
-          <strong>
-            Todavía no hay actividades planificadas
-          </strong>
-
-          <p>
-            Agrega una actividad para comenzar.
-          </p>
-
-        </div>
-      `;
-
-    return;
-  }
-
-
-  container.innerHTML =
-    state.plannedActivities
-      .map(
-        (activity, index) => {
-
-          const dependency =
-            activity.dependencyName ||
-            "Inicio del proyecto";
-
-
-          return `
-
-            <div
-              class="dependency-node"
-            >
-
-              <div
-                class="dependency-number"
-              >
-                ${String(
-                  index + 1
-                ).padStart(
-                  2,
-                  "0"
-                )}
-              </div>
-
-
-              <div
-                class="dependency-body"
-              >
-
-                <div
-                  class="dependency-top"
-                >
-
-                  <strong>
-                    ${escapeHTML(
-                      activity.name
-                    )}
-                  </strong>
-
-
-                  <button
-                    type="button"
-                    data-delete-plan="${escapeHTML(
-                      activity.id
-                    )}"
-                  >
-                    ×
-                  </button>
-
-                </div>
-
-
-                <span>
-                  ${escapeHTML(
-                    activity.phase ||
-                    "Sin fase"
-                  )}
-                  ·
-                  ${escapeHTML(
-                    formatCompact(
-                      activity.quantity
-                    )
-                  )}
-                  ${escapeHTML(
-                    activity.unit
-                  )}
-                </span>
-
-
-                <small>
-                  Depende de:
-                  ${escapeHTML(
-                    dependency
-                  )}
-                </small>
-
-              </div>
-
-            </div>
-          `;
-        }
-      )
-      .join("");
-
-
-  container
-    .querySelectorAll(
-      "[data-delete-plan]"
-    )
-    .forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          () =>
-            removePlannerActivity(
-              button.dataset.deletePlan
-            )
-        );
-      }
-    );
+  const byId = new Map(activities.map(item => [String(item.id), item]));
+  const children = new Map();
+  activities.forEach(item => {
+    const dep = item.dependencyId ? String(item.dependencyId) : "";
+    if (!children.has(dep)) children.set(dep, []);
+    children.get(dep).push(item);
+  });
+  const visited = new Set();
+  const renderNode = item => {
+    const id = String(item.id);
+    if (visited.has(id)) return "";
+    visited.add(id);
+    const dependency = item.dependencyName || "Inicio del proyecto";
+    const kids = (children.get(id) || []).filter(child => String(child.id) !== id);
+    const kidMarkup = kids.length ? `<div class="dependency-link">↓ continúa con</div><div class="dependency-tree-children">${kids.map(renderNode).join("")}</div>` : "";
+    return `<div class="dependency-tree-item"><div class="dependency-node"><div class="dependency-number">${String(activities.indexOf(item)+1).padStart(2,"0")}</div><div class="dependency-body"><div class="dependency-top"><strong>${escapeHTML(item.name)}</strong><span style="display:flex;gap:5px;align-items:center"><button type="button" class="orbe-edit-plan" data-edit-plan="${escapeHTML(item.id)}">Editar</button><button type="button" data-delete-plan="${escapeHTML(item.id)}">×</button></span></div><span>${escapeHTML(item.phase || "Sin fase")} · ${escapeHTML(formatCompact(item.quantity))} ${escapeHTML(item.unit)}</span><small>Depende de: ${escapeHTML(dependency)}</small></div></div>${kidMarkup}</div>`;
+  };
+  const roots = activities.filter(item => !item.dependencyId || !byId.has(String(item.dependencyId)));
+  const markup = `<div class="dependency-tree">${roots.map(renderNode).join("")}${activities.filter(item => !visited.has(String(item.id))).map(renderNode).join("")}</div>`;
+  container.innerHTML = markup;
+  container.querySelectorAll("[data-delete-plan]").forEach(btn => btn.addEventListener("click", () => removePlannerActivity(btn.dataset.deletePlan)));
+  container.querySelectorAll("[data-edit-plan]").forEach(btn => btn.addEventListener("click", () => window.OrbePlanner?.editActivity?.(btn.dataset.editPlan)));
 }
 
 
@@ -2661,10 +2599,7 @@ function renderGantt() {
   const totalDays =
     Math.max(
       1,
-      daysBetween(
-        minDate,
-        maxDate
-      )
+      workingDaysBetween(minDate, maxDate)
     );
 
 
@@ -2705,10 +2640,9 @@ function renderGantt() {
       (_, index) => {
 
         const date =
-          addDays(
-            minDate,
-            index * unit
-          );
+          unit === 1
+            ? addWorkDays(minDate, index)
+            : addWorkDays(minDate, index * 5);
 
 
         return `
@@ -2732,20 +2666,14 @@ function renderGantt() {
           const offset =
             Math.max(
               0,
-              daysBetween(
-                minDate,
-                item.start
-              ) - 1
+              workingDaysBetween(minDate, item.start) - 1
             );
 
 
           const span =
             Math.max(
               1,
-              daysBetween(
-                item.start,
-                item.end
-              )
+              workingDaysBetween(item.start, item.end)
             );
 
 
@@ -3017,6 +2945,10 @@ function renderMasterTable() {
     $("masterEmployeeFilter")?.value ||
     "";
 
+  const period =
+    $("masterPeriodFilter")?.value ||
+    "";
+
 
   if (phase) {
 
@@ -3055,6 +2987,24 @@ function renderMasterTable() {
               )
           )
       );
+  }
+
+  if (period) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    let from = new Date(today);
+    let to = new Date(today);
+    if (period === "semana") {
+      const day = today.getDay() || 7;
+      from.setDate(today.getDate() - day + 1);
+      to = new Date(from);
+      to.setDate(from.getDate() + 4);
+    }
+    rows = rows.filter(item => {
+      const start = parseDate(item.start);
+      const end = parseDate(item.end);
+      return start && end && start <= to && end >= from;
+    });
   }
 
 
@@ -4501,6 +4451,20 @@ function updateCurrentProjectUI() {
     );
 
 
+  const heroDate = document.querySelector(".hero-date");
+  if (heroDate) {
+    const start = parseDate(project.start);
+    const end = parseDate(project.end);
+    const durationMonths = start && end
+      ? ((end.getFullYear()-start.getFullYear())*12 + (end.getMonth()-start.getMonth()) + (end.getDate() >= start.getDate() ? 0 : -1))
+      : 0;
+    heroDate.innerHTML = `
+      <span>PLAZO DEL PROYECTO</span>
+      <strong>${end && durationMonths > 0 ? durationMonths : (end ? daysBetween(start,end) : "—")} <small>${end && durationMonths > 0 ? "MESES" : (end ? "DÍAS" : "")}</small></strong>
+      <em>${formatDate(project.start)}${end ? " → " + formatDate(project.end) : ""}</em>
+    `;
+  }
+
   let bar =
     $("projectCurrentBar");
 
@@ -4925,8 +4889,11 @@ function exportCSV() {
 
 
 function printPlanner() {
-
+  document.body.classList.add("print-master-only");
+  const cleanup = () => document.body.classList.remove("print-master-only");
+  window.addEventListener("afterprint", cleanup, { once: true });
   window.print();
+  setTimeout(cleanup, 1500);
 }
 
 
@@ -5182,7 +5149,7 @@ function mountScenarioCalculator(){
       </div>
     </div>
     <div class="orbe-calc-grid">
-      <label>Cantidad<input id="quantity" type="number" min="0" step="1" value="0"></label>
+      <label>Cantidad<input id="quantity" type="number" min="0" step="0.01" value="0"></label>
       <label>Unidad<input id="unit" type="text" value="m²"></label>
       <label>Rendimiento<input id="yield" type="number" min="0" step="0.01" value="0"><small id="yieldLabel">unidad/persona/día</small></label>
       <label>Eficiencia %<input id="efficiency" type="number" min="1" step="1" value="100"></label>
@@ -5228,6 +5195,8 @@ function calculateOrbeScenario(){
   const activePeople=team?resources*peoplePerTeam:resources;
   const targetPeople=team?targetResources*peoplePerTeam:targetResources;
   const resourceWord=team?"equipos":"personas";
+  const peopleField=orbeEl("peoplePerTeam");
+  if(peopleField) peopleField.disabled=!team;
   const resourceSingular=team?"equipo":"persona";
   const set=(id,val)=>{const e=orbeEl(id);if(e)e.textContent=val;};
   if(!Q||!R){
@@ -5267,6 +5236,7 @@ function beginEditPlannerActivity(id){
   const item=state.plannedActivities.find(x=>String(x.id)===String(id));
   if(!item)return;
   ORBE.editId=item.id;
+  state.editingPlanId = item.id;
   const activityIndex=state.activities.findIndex(x=>String(x.id)===String(item.activityId));
   if(orbeEl("plannerActivity") && activityIndex>=0)orbeEl("plannerActivity").value=activityIndex;
   if(orbeEl("plannerManager"))orbeEl("plannerManager").value=item.manager||"";
@@ -5290,6 +5260,7 @@ function beginEditPlannerActivity(id){
 }
 function cancelEditPlannerActivity(){
   ORBE.editId=null;
+  state.editingPlanId = "";
   const add=orbeEl("addPlannerActivity");if(add)add.textContent="+ Agregar actividad";
   orbeEl("cancelEditPlannerActivity")?.remove();
   clearActivityForm(true);
@@ -5317,16 +5288,31 @@ async function addPlannerActivityFinal(){
     return;
   }
   const start=calculateStartDate();
-  item.activityId=activity.id; item.phase=activity.phase; item.subarea=activity.subarea; item.name=activity.name;
-  item.quantity=activity.quantity; item.unit=activity.unit; item.manager=orbeEl("plannerManager")?.value||"";
-  item.duration=duration; item.start=start; item.end=addWorkDays(start,duration-1);
-  item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
-  item.employees=getSelectedEmployees(); item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
-  item.shift=orbeEl("plannerShift")?.value||"Diurno";
+  const end=addWorkDays(start,duration-1);
+  const excludeId=item.sheetId||item.id;
 
-  if(alertBusyEmployees(start,item.end,item.sheetId||item.id)){
+  if (!validateProjectEnd(end)) {
+    alert(getProjectEndMessage(end));
     return;
   }
+
+  const previousEmployees = state.selectedEmployees;
+  const previousShift = orbeEl("plannerShift")?.value || "Diurno";
+  const nextEmployees = getSelectedEmployees();
+  const nextShift = orbeEl("plannerShift")?.value||"Diurno";
+  state.selectedEmployees = nextEmployees;
+  if(alertBusyEmployees(start,end,excludeId)){
+    state.selectedEmployees = previousEmployees;
+    state._availabilityShift = previousShift;
+    return;
+  }
+
+  item.activityId=activity.id; item.phase=activity.phase; item.subarea=activity.subarea; item.name=activity.name;
+  item.quantity=activity.quantity; item.unit=activity.unit; item.manager=orbeEl("plannerManager")?.value||"";
+  item.duration=duration; item.start=start; item.end=end;
+  item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
+  item.employees=nextEmployees; item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
+  item.shift=nextShift;
 
   try{
     recalculateAllDates();
@@ -5334,6 +5320,7 @@ async function addPlannerActivityFinal(){
       if(plan.sheetId) await savePlan(plan);
     }
     ORBE.editId=null;
+    state.editingPlanId = "";
     orbeEl("addPlannerActivity").textContent="+ Agregar actividad";
     orbeEl("cancelEditPlannerActivity")?.remove();
     populateDependencies();
@@ -5440,26 +5427,96 @@ function refreshEmployeeAvailability(){
 ========================================================= */
 async function exportMasterExcel(){
   const rows=(state.plannedActivities||[]).map((item,i)=>[i+1,item.phase||"",item.name||"",item.manager||"",formatISODate(item.start),formatISODate(item.end),(item.employees||[]).map(e=>e.name||e).join(", "),item.duration||""]);
-  if(window.XLSX){
-    const wb=XLSX.utils.book_new();
-    const ws=XLSX.utils.aoa_to_sheet([["#","Fase","Actividad","Encargado","Inicio","Fin","Equipo","Duración"],...rows]);
-    XLSX.utils.book_append_sheet(wb,ws,"Cronograma");
-    XLSX.writeFile(wb,`${(state.currentProject?.name||"planificador").replace(/[^a-z0-9]+/gi,"_")}.xlsx`);
-    return;
+
+  if(!window.XLSX){
+    try{
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        script.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+        script.onload=resolve;
+        script.onerror=reject;
+        document.head.appendChild(script);
+      });
+    }catch(error){
+      exportCSV();
+      alert("No se pudo cargar el exportador XLSX. Se descargó un CSV compatible con Excel.");
+      return;
+    }
   }
-  exportCSV();
-  alert("Se exportó en CSV, que puedes abrir directamente con Excel. Si quieres XLSX real, carga SheetJS en tu index.html.");
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([["#","Fase","Actividad","Encargado","Inicio","Fin","Equipo","Duración"],...rows]);
+  XLSX.utils.book_append_sheet(wb,ws,"Cronograma");
+  XLSX.writeFile(wb,`${(state.currentProject?.name||"planificador").replace(/[^a-z0-9]+/gi,"_")}.xlsx`);
 }
+
 
 /* =========================================================
    INIT FINAL
 ========================================================= */
+function injectFinalVisualStyles(){
+  if (document.getElementById("orbeFinalStyles")) return;
+  const style = document.createElement("style");
+  style.id = "orbeFinalStyles";
+  style.textContent = `
+    #orbeScenarioCalculator{background:#fff;border:1px solid #e2e6df;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.04)}
+    #orbeScenarioCalculator .orbe-calc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:22px;border-bottom:1px solid #edf0ec}
+    #orbeScenarioCalculator .orbe-calc-kicker{font:700 9px/1 "DM Mono",monospace;letter-spacing:.14em;color:#7f887f}
+    #orbeScenarioCalculator h3{margin:8px 0 5px;font-size:22px;letter-spacing:-.03em}
+    #orbeScenarioCalculator p{margin:0;color:#7a827b;font-size:11px;line-height:1.55}
+    #orbeScenarioCalculator .orbe-mode-toggle{display:flex;gap:6px;background:#f2f4f0;padding:4px;border-radius:8px}
+    #orbeScenarioCalculator .orbe-mode-toggle button{border:0;background:transparent;padding:8px 11px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;color:#66705f}
+    #orbeScenarioCalculator .orbe-mode-toggle button.active{background:#1b1d1b;color:#fff}
+    #orbeScenarioCalculator .orbe-calc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:18px 22px}
+    #orbeScenarioCalculator .orbe-calc-grid label{display:grid;gap:5px;font-size:9px;font-weight:800;color:#697169;text-transform:uppercase}
+    #orbeScenarioCalculator .orbe-calc-grid input{width:100%;box-sizing:border-box;height:38px;border:1px solid #dfe4df;border-radius:7px;padding:0 10px;font-size:11px;background:#fff}
+    #orbeScenarioCalculator .orbe-calc-grid small{font-size:8px;color:#8b938d;text-transform:none}
+    #orbeScenarioCalculator .orbe-results{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 22px 18px}
+    #orbeScenarioCalculator .orbe-results article{border:1px solid #e6eae4;border-radius:10px;padding:14px;background:#fbfcfa}
+    #orbeScenarioCalculator .orbe-results span{display:block;font:700 8px "DM Mono",monospace;letter-spacing:.08em;color:#858c87}
+    #orbeScenarioCalculator .orbe-results strong{display:block;margin:7px 0 4px;font-size:20px;letter-spacing:-.03em}
+    #orbeScenarioCalculator .orbe-results small{color:#7e877f;font-size:9px;line-height:1.4}
+    #orbeScenarioCalculator .orbe-scenario-table-wrap{padding:0 22px 22px}
+    #orbeScenarioCalculator .orbe-table-title{font:700 9px "DM Mono",monospace;color:#727b73;text-transform:uppercase;letter-spacing:.08em;margin:4px 0 8px}
+    #orbeScenarioCalculator .orbe-scenario-table{width:100%;border-collapse:collapse;font-size:10px}
+    #orbeScenarioCalculator .orbe-scenario-table th,#orbeScenarioCalculator .orbe-scenario-table td{text-align:left;padding:9px 8px;border-bottom:1px solid #eef1ed}
+    #orbeScenarioCalculator .orbe-scenario-table th{font:700 8px "DM Mono",monospace;color:#8a918c;text-transform:uppercase}
+    #orbeScenarioCalculator .orbe-scenario-table tr.active td{background:#f3f7e9;font-weight:800}
+    .employee-option{display:grid!important;grid-template-columns:auto 30px 1fr;align-items:center;gap:8px;min-height:48px;padding:9px!important}
+    .employee-avatar{width:30px;height:30px;border-radius:8px;background:#eef3e6;color:#657438;display:grid;place-items:center;font:800 9px "DM Mono",monospace}
+    .employee-text{display:grid!important;gap:2px!important;min-width:0}
+    .employee-availability{display:flex;align-items:center;gap:4px;font-size:7px!important;font-style:normal;color:#7f887f}
+    .employee-availability i{width:5px;height:5px;border-radius:50%;background:#9cc51f;display:inline-block}
+    .employee-availability.busy{color:#a25b55}
+    .employee-availability.busy i{background:#c96d62}
+    .dependency-tree{display:grid;gap:10px;padding:4px 2px}
+    .dependency-tree-children{margin-left:25px;padding-left:14px;border-left:1px solid #dde4d6;display:grid;gap:10px}
+    .dependency-link{font:700 9px "DM Mono",monospace;color:#9aa39b;padding:0 0 0 7px}
+    .dependency-node{background:#fff;border:1px solid #e5e9e3;border-radius:10px;padding:10px;box-shadow:0 2px 7px rgba(0,0,0,.025)}
+    body.print-master-only *{visibility:hidden!important}
+    body.print-master-only .master-table-card,body.print-master-only .master-table-card *{visibility:visible!important}
+    body.print-master-only .master-table-card{position:absolute;inset:0;width:auto;margin:0;border:0;box-shadow:none}
+    body.print-master-only .master-actions,body.print-master-only .master-filters{display:none!important}
+    @media(max-width:850px){
+      #orbeScenarioCalculator .orbe-calc-head{flex-direction:column}
+      #orbeScenarioCalculator .orbe-calc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #orbeScenarioCalculator .orbe-results{grid-template-columns:1fr}
+    }
+    @media(max-width:520px){#orbeScenarioCalculator .orbe-calc-grid{grid-template-columns:1fr}}
+    @media print{body.print-master-only{background:#fff}body.print-master-only .master-table-card{position:static!important;margin:0!important}}
+  `;
+  document.head.appendChild(style);
+}
+
 function installFinalPatch(){
+  injectFinalVisualStyles();
   mountScenarioCalculator();
   refreshEmployeeAvailability();
   /* Rebind button because original bindEvents captured the old function. */
   const add=orbeEl("addPlannerActivity");
   if(add){add.replaceWith(add.cloneNode(true));orbeEl("addPlannerActivity").addEventListener("click",addPlannerActivityFinal);}
+  const exportBtn=orbeEl("exportMasterTable");
+  if(exportBtn){exportBtn.replaceWith(exportBtn.cloneNode(true));orbeEl("exportMasterTable").addEventListener("click",exportMasterExcel);orbeEl("exportMasterTable").textContent="Exportar Excel";}
   /* expose useful commands */
   window.OrbePlanner={
     ...(window.OrbePlanner||{}),
@@ -5467,8 +5524,10 @@ function installFinalPatch(){
     criticalPath:calculateCPM,
     exportExcel:exportMasterExcel,
     editActivity:beginEditPlannerActivity,
-    cancelEdit:cancelEditPlannerActivity
+    cancelEdit:cancelEditPlannerActivity,
+    availability:employeeBusyAcrossProjects
   };
+  window.employeeBusyAcrossProjects = employeeBusyAcrossProjects;
   renderCriticalPath();
 }
 
