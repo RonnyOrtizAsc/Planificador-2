@@ -55,7 +55,28 @@ function normalize(value = "") {
 
 
 function number(value, fallback = 0) {
-  const n = Number(value);
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+
+  let text = String(value).trim().replace(/\\s/g, "");
+  if (!text) return fallback;
+
+  if (text.includes(",") && text.includes(".")) {
+    const lastComma = text.lastIndexOf(",");
+    const lastDot = text.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      text = text.replace(/\\./g, "").replace(",", ".");
+    } else {
+      text = text.replace(/,/g, "");
+    }
+  } else if (text.includes(",")) {
+    const parts = text.split(",");
+    text = parts.length === 2 && parts[1].length <= 2
+      ? parts[0] + "." + parts[1]
+      : parts.join("");
+  }
+
+  const n = Number(text);
   return Number.isFinite(n) ? n : fallback;
 }
 
@@ -89,23 +110,30 @@ function formatCompact(value) {
 
 
 function parseDate(value) {
-  if (!value) {
-    return null;
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
   }
 
-  const d = new Date(value);
+  const text = String(value).trim();
+  let y, m, d;
 
-  if (Number.isNaN(d.getTime())) {
-    return null;
+  let match = text.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/);
+  if (match) {
+    y = Number(match[1]); m = Number(match[2]); d = Number(match[3]);
+    return new Date(y, m - 1, d);
   }
 
-  return new Date(
-    d.getFullYear(),
-    d.getMonth(),
-    d.getDate()
-  );
+  match = text.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})/);
+  if (match) {
+    d = Number(match[1]); m = Number(match[2]); y = Number(match[3]);
+    return new Date(y, m - 1, d);
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
-
 
 function formatDate(value) {
   const d = parseDate(value);
@@ -150,6 +178,31 @@ function formatISODate(value) {
   ].join("-");
 }
 
+
+function isWorkingDay(value) {
+  const d = parseDate(value);
+  if (!d) return false;
+  const day = d.getDay();
+  return day !== 0 && day !== 6;
+}
+
+function nextWorkingDay(value) {
+  let d = parseDate(value);
+  if (!d) return null;
+  while (!isWorkingDay(d)) d = addDays(d, 1);
+  return d;
+}
+
+function addWorkDays(value, amount) {
+  let d = nextWorkingDay(value);
+  if (!d) return null;
+  let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+  while (remaining > 0) {
+    d = addDays(d, 1);
+    if (isWorkingDay(d)) remaining--;
+  }
+  return d;
+}
 
 function addDays(value, amount) {
   const d = parseDate(value);
@@ -579,105 +632,38 @@ function normalizeProject(raw) {
 
 
 function normalizePlan(raw) {
+  const team = raw.EQUIPO ?? raw.equipo ?? "";
+  const employeeIds = Array.isArray(team)
+    ? team.map(String).filter(Boolean)
+    : String(team).split(",").map(v => v.trim()).filter(Boolean);
 
-  const team =
-    raw.EQUIPO ??
-    raw.equipo ??
-    "";
-
-  const employeeIds =
-    Array.isArray(team)
-      ? team.map(String).filter(Boolean)
-      : String(team)
-          .split(",")
-          .map(v => v.trim())
-          .filter(Boolean);
+  const dependencyId = raw.DEPENDENCIA ?? raw.dependencyId ?? "";
 
   return {
-
-    id:
-      raw.ID_PLAN ??
-      raw.id ??
+    id: raw.ID_PLAN ?? raw.id ?? "",
+    projectId: raw.ID_PROYECTO ?? raw.projectId ?? "",
+    activityId: raw.ID_ACTIVIDAD ?? raw.activityId ?? "",
+    phase: raw.FASE ?? raw.phase ?? "",
+    subarea: raw.SUBÁREA ?? raw.SUBAREA ?? raw.subarea ?? "",
+    name: raw.ACTIVIDAD ?? raw.name ?? "",
+    quantity: number(raw.CANTIDAD ?? raw.quantity),
+    unit: raw.UNIDAD ?? raw.unit ?? "",
+    yield: number(raw.RENDIMIENTO ?? raw.yield),
+    yieldUnit: raw.UNIDAD_RENDIMIENTO ?? raw.yieldUnit ?? "",
+    duration: number(raw.DURACION ?? raw.duration, 1),
+    start: parseDate(raw.INICIO ?? raw.start),
+    end: parseDate(raw.FIN ?? raw.end),
+    shift: raw.TURNO ?? raw.shift ?? "Diurno",
+    dependencyId,
+    dependencyName:
+      raw.dependencyName ||
+      state.plannedActivities?.find(
+        item => String(item.id) === String(dependencyId)
+      )?.name ||
       "",
-
-    projectId:
-      raw.ID_PROYECTO ??
-      raw.projectId ??
-      "",
-
-    activityId:
-      raw.ID_ACTIVIDAD ??
-      raw.activityId ??
-      "",
-
-    phase:
-      raw.FASE ??
-      raw.phase ??
-      "",
-
-    name:
-      raw.ACTIVIDAD ??
-      raw.name ??
-      "",
-
-    quantity:
-      number(
-        raw.CANTIDAD ??
-        raw.quantity
-      ),
-
-    unit:
-      raw.UNIDAD ??
-      raw.unit ??
-      "",
-
-    yield:
-      number(
-        raw.RENDIMIENTO ??
-        raw.yield
-      ),
-
-    yieldUnit:
-      raw.UNIDAD_RENDIMIENTO ??
-      raw.yieldUnit ??
-      "",
-
-    duration:
-      number(
-        raw.DURACION ??
-        raw.duration,
-        1
-      ),
-
-    start:
-      parseDate(
-        raw.INICIO ??
-        raw.start
-      ),
-
-    end:
-      parseDate(
-        raw.FIN ??
-        raw.end
-      ),
-
-    shift:
-      raw.TURNO ??
-      raw.shift ??
-      "Diurno",
-
-    dependencyId:
-      raw.DEPENDENCIA ??
-      raw.dependencyId ??
-      "",
-
-    employees:
-      employeeIds,
-
-    status:
-      raw.ESTADO ??
-      raw.status ??
-      "Pendiente"
+    manager: raw.ENCARGADO ?? raw.manager ?? "",
+    employees: employeeIds,
+    status: raw.ESTADO ?? raw.status ?? "Pendiente"
   };
 }
 
@@ -1846,6 +1832,24 @@ function getDependency() {
 }
 
 
+function dependencyWouldCycle(activityId, dependencyId) {
+  if (!activityId || !dependencyId) return false;
+  let current = String(dependencyId);
+  const seen = new Set();
+
+  while (current) {
+    if (current === String(activityId)) return true;
+    if (seen.has(current)) return true;
+    seen.add(current);
+
+    const item = state.plannedActivities.find(
+      x => String(x.id) === current
+    );
+    current = item?.dependencyId ? String(item.dependencyId) : "";
+  }
+  return false;
+}
+
 function calculateStartDate() {
 
   const dependency =
@@ -1857,14 +1861,14 @@ function calculateStartDate() {
     dependency.end
   ) {
 
-    return addDays(
+    return addWorkDays(
       dependency.end,
       1
     );
   }
 
 
-  return parseDate(
+  return nextWorkingDay(
     state.currentProject?.start ||
     CONFIG.projectStart
   );
@@ -1895,6 +1899,9 @@ function planToPayload(
     FASE:
       planned.phase,
 
+    SUBÁREA:
+      planned.subarea || "",
+
     ACTIVIDAD:
       planned.name,
 
@@ -1924,6 +1931,9 @@ function planToPayload(
       formatISODate(
         planned.end
       ),
+
+    ENCARGADO:
+      planned.manager || "",
 
     TURNO:
       planned.shift ||
@@ -2112,7 +2122,7 @@ async function addPlannerActivity() {
 
 
   const end =
-    addDays(
+    addWorkDays(
       start,
       Math.max(
         1,
@@ -2130,11 +2140,14 @@ async function addPlannerActivity() {
   const dependency =
     getDependency();
 
+  if (dependency && dependencyWouldCycle("", dependency.id)) {
+    // No hay ID propio todavía; una nueva actividad no puede cerrar un ciclo.
+  }
 
   const planned = {
 
     id:
-      `LOCAL-${Date.now()}`,
+      "",
 
     sheetId:
       "",
@@ -2347,18 +2360,8 @@ async function removePlannerActivity(
     recalculateAllDates();
 
 
-    for (
-      const item of affected
-    ) {
-
-      if (
-        item.sheetId
-      ) {
-
-        await savePlan(
-          item
-        );
-      }
+    for (const item of state.plannedActivities) {
+      if (item.sheetId) await savePlan(item);
     }
 
 
@@ -2380,63 +2383,38 @@ async function removePlannerActivity(
 
 
 function recalculateAllDates() {
+  const activities = state.plannedActivities || [];
+  const byId = new Map(activities.map(a => [String(a.id), a]));
+  const done = new Set();
+  let guard = 0;
 
-  state.plannedActivities.forEach(
-    activity => {
+  function visit(activity) {
+    const id = String(activity.id);
+    if (done.has(id)) return;
+    if (guard++ > activities.length * 3) return;
 
-      let start =
-        parseDate(
-          state.currentProject?.start ||
-          CONFIG.projectStart
-        );
+    let start = nextWorkingDay(
+      state.currentProject?.start || CONFIG.projectStart
+    );
 
-
-      if (
-        activity.dependencyId
-      ) {
-
-        const dependency =
-          state.plannedActivities.find(
-            item =>
-              String(
-                item.id
-              ) ===
-              String(
-                activity.dependencyId
-              )
-          );
-
-
-        if (
-          dependency &&
-          dependency.end
-        ) {
-
-          start =
-            addDays(
-              dependency.end,
-              1
-            );
-        }
+    if (activity.dependencyId) {
+      const dependency = byId.get(String(activity.dependencyId));
+      if (dependency) {
+        visit(dependency);
+        start = addWorkDays(dependency.end, 1);
       }
-
-
-      activity.start =
-        start;
-
-
-      activity.end =
-        addDays(
-          start,
-          Math.max(
-            1,
-            activity.duration
-          ) - 1
-        );
     }
-  );
-}
 
+    activity.start = start;
+    activity.end = addWorkDays(
+      start,
+      Math.max(1, Number(activity.duration) || 1) - 1
+    );
+    done.add(id);
+  }
+
+  activities.forEach(visit);
+}
 
 /* =========================================================
    DEPENDENCIAS VISUALES
@@ -4647,7 +4625,7 @@ function loadCurrentProjectPlans() {
           item.unit,
 
         manager:
-          "",
+          item.manager || "",
 
         start:
           item.start,
@@ -5330,10 +5308,18 @@ async function addPlannerActivityFinal(){
   const entered=getInputDurationDays();
   const duration=Math.max(1,Math.ceil(entered>0?entered:estimateDuration(activity,recommendation)));
   const dep=getDependency();
+  if(dep && String(dep.id) === String(item.id)){
+    alert("Una actividad no puede depender de sí misma.");
+    return;
+  }
+  if(dep && dependencyWouldCycle(item.id, dep.id)){
+    alert("Esa dependencia crea un ciclo. Elige otra actividad.");
+    return;
+  }
   const start=calculateStartDate();
   item.activityId=activity.id; item.phase=activity.phase; item.subarea=activity.subarea; item.name=activity.name;
   item.quantity=activity.quantity; item.unit=activity.unit; item.manager=orbeEl("plannerManager")?.value||"";
-  item.duration=duration; item.start=start; item.end=addDays(start,duration-1);
+  item.duration=duration; item.start=start; item.end=addWorkDays(start,duration-1);
   item.dependencyId=dep?.id||null; item.dependencyName=dep?.name||"";
   item.employees=getSelectedEmployees(); item.yield=recommendation.yield; item.yieldUnit=recommendation.yieldUnit||"";
   item.shift=orbeEl("plannerShift")?.value||"Diurno";
@@ -5342,7 +5328,21 @@ async function addPlannerActivityFinal(){
     return;
   }
 
-  try{await savePlan(item);ORBE.editId=null;orbeEl("addPlannerActivity").textContent="+ Agregar actividad";orbeEl("cancelEditPlannerActivity")?.remove();populateDependencies();renderAllPlannerViews();clearActivityForm(false);}catch(e){console.error(e);alert("No se pudieron guardar los cambios:\n\n"+e.message);}
+  try{
+    recalculateAllDates();
+    for(const plan of state.plannedActivities){
+      if(plan.sheetId) await savePlan(plan);
+    }
+    ORBE.editId=null;
+    orbeEl("addPlannerActivity").textContent="+ Agregar actividad";
+    orbeEl("cancelEditPlannerActivity")?.remove();
+    populateDependencies();
+    renderAllPlannerViews();
+    clearActivityForm(false);
+  }catch(e){
+    console.error(e);
+    alert("No se pudieron guardar los cambios:\n\n"+e.message);
+  }
 }
 window.addPlannerActivity=addPlannerActivityFinal;
 
@@ -5397,11 +5397,17 @@ function employeeBusyAcrossProjects(employeeId, start, end, excludePlanId=""){
     if(String(p.id)===String(excludePlanId))return false;
     if(!p.employees?.some(x=>String(typeof x==="object"?x.id:x)===String(employeeId)))return false;
     const ps=parseDate(p.start),pe=parseDate(p.end);
-    return ps&&pe&&s<=pe&&e>=ps;
+    if(!(ps&&pe&&s<=pe&&e>=ps)) return false;
+    const currentShift = String(
+      state._availabilityShift || $("plannerShift")?.value || "Diurno"
+    );
+    const planShift = String(p.shift || "Diurno");
+    return currentShift === "Ambos" || planShift === "Ambos" || currentShift === planShift;
   });
 }
 
 function getBusyEmployees(start,end,excludePlanId=""){
+  state._availabilityShift = $("plannerShift")?.value || "Diurno";
   return state.selectedEmployees.filter(employee=>
     employeeBusyAcrossProjects(employee.id,start,end,excludePlanId)
   );
