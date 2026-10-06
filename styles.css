@@ -2434,3 +2434,140 @@ footer{
   opacity:0 !important;
   pointer-events:none !important;
 }
+/* =========================================================
+   EMPLEADOS — LISTA COMPACTA
+========================================================= */
+
+.employee-selector-toolbar{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  margin-bottom:7px !important;
+}
+
+.employee-selector-toolbar span{
+  margin-right:auto !important;
+  font-size:9px !important;
+  color:#858c87 !important;
+}
+
+.employee-selector-toolbar button{
+  border:0 !important;
+  background:transparent !important;
+  color:#68751f !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+  cursor:pointer !important;
+}
+
+.employee-list{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:6px !important;
+  max-height:250px !important;
+  overflow-y:auto !important;
+  align-content:start !important;
+  padding-right:3px !important;
+}
+
+.employee-option{
+  display:grid !important;
+  grid-template-columns:30px minmax(0,1fr) 18px !important;
+  align-items:center !important;
+  gap:7px !important;
+  min-height:55px !important;
+  padding:8px !important;
+  border:1px solid #dfe3df !important;
+  border-radius:8px !important;
+  background:#fff !important;
+  cursor:pointer !important;
+  text-align:left !important;
+}
+
+.employee-option:hover{
+  border-color:#b9c98c !important;
+  background:#fbfdf8 !important;
+}
+
+.employee-option:has(input:checked){
+  border-color:#afc474 !important;
+  background:#f4f8e9 !important;
+}
+
+.employee-option input{
+  width:16px !important;
+  height:16px !important;
+  grid-column:3 !important;
+  grid-row:1 !important;
+  accent-color:#9cc51f !important;
+}
+
+.employee-option span{
+  min-width:0 !important;
+}
+
+.employee-avatar{
+  grid-column:1 !important;
+  grid-row:1 !important;
+  width:30px !important;
+  height:30px !important;
+  border-radius:7px !important;
+  background:#eef2e7 !important;
+  color:#657438 !important;
+  display:grid !important;
+  place-items:center !important;
+  font:800 8px "DM Mono",monospace !important;
+}
+
+.employee-text{
+  grid-column:2 !important;
+  grid-row:1 !important;
+  display:grid !important;
+  gap:2px !important;
+  min-width:0 !important;
+}
+
+.employee-text strong{
+  font-size:9px !important;
+  line-height:1.2 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.employee-text small{
+  display:block !important;
+  font-size:8px !important;
+  color:#59635c !important;
+  line-height:1.2 !important;
+}
+
+.employee-availability{
+  display:flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  font-size:7px !important;
+  font-style:normal !important;
+  color:#5c9c55 !important;
+}
+
+.employee-availability i{
+  width:5px !important;
+  height:5px !important;
+  border-radius:50% !important;
+  background:#67b55e !important;
+}
+
+.employee-availability.busy{
+  color:#a15b54 !important;
+}
+
+.employee-availability.busy i{
+  background:#c96d62 !important;
+}
+
+@media(max-width:900px){
+  .employee-list{
+    grid-template-columns:1fr !important;
+  }
+}
