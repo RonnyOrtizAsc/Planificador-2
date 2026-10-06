@@ -2462,20 +2462,24 @@ footer{
 
 .employee-list{
   display:grid !important;
-  grid-template-columns:1fr 1fr !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   gap:6px !important;
-  max-height:250px !important;
+  height:178px !important;
+  max-height:178px !important;
   overflow-y:auto !important;
+  overflow-x:hidden !important;
   align-content:start !important;
-  padding-right:3px !important;
+  padding:2px !important;
 }
 
 .employee-option{
+  width:100% !important;
   display:grid !important;
   grid-template-columns:30px minmax(0,1fr) 18px !important;
   align-items:center !important;
   gap:7px !important;
-  min-height:55px !important;
+  min-height:51px !important;
+  height:51px !important;
   padding:8px !important;
   border:1px solid #dfe3df !important;
   border-radius:8px !important;
