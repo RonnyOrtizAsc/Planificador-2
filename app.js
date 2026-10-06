@@ -2280,30 +2280,15 @@ async function addPlannerActivity() {
   };
 
 
-  const button =
-    $("addPlannerActivity");
+state.plannedActivities.push(
+  planned
+);
 
+populateDependencies();
 
-  if (button) {
+renderAllPlannerViews();
 
-    button.disabled =
-      true;
-
-    button.textContent =
-      "Guardando…";
-  }
-
-
-  try {
-
-    await savePlan(
-      planned
-    );
-
-
-    state.plannedActivities.push(
-      planned
-    );
+clearActivityForm(false);
 
 
     populateDependencies();
@@ -2337,7 +2322,79 @@ async function addPlannerActivity() {
   }
 }
 
+async function savePlannerPlanning(){
 
+  if(!state.plannedActivities.length){
+    alert(
+      "Agrega al menos una actividad antes de guardar la planificación."
+    );
+    return;
+  }
+
+  /*
+   * Si todavía no existe proyecto,
+   * primero pedimos sus datos.
+   */
+  if(!state.currentProject){
+
+    state._pendingSavePlanning = true;
+    state._pendingDrafts = [
+      ...state.plannedActivities
+    ];
+
+    openProjectGate();
+    showProjectSection("form");
+
+    return;
+  }
+
+  const button =
+    $("savePlannerPlanning");
+
+  if(button){
+    button.disabled = true;
+    button.textContent = "Guardando…";
+  }
+
+  try{
+
+    recalculateAllDates();
+
+    for(
+      const plan of state.plannedActivities
+    ){
+
+      plan.projectId =
+        state.currentProject.id;
+
+      await savePlan(plan);
+    }
+
+    renderAllPlannerViews();
+
+    alert(
+      "Planificación guardada correctamente."
+    );
+
+  }catch(error){
+
+    console.error(error);
+
+    alert(
+      "No se pudo guardar la planificación:\n\n" +
+      error.message
+    );
+
+  }finally{
+
+    if(button){
+
+      button.disabled = false;
+      button.textContent =
+        "💾 Guardar planificación";
+    }
+  }
+}
 async function removePlannerActivity(
   id
 ) {
@@ -4162,9 +4219,28 @@ function renderProjectList() {
 
 
             if (project) {
+if(state._pendingSavePlanning){
 
-              enterProject(
-                project
+  const drafts =
+    state._pendingDrafts || [];
+
+  state._pendingSavePlanning =
+    false;
+
+  state._pendingDrafts = [];
+
+  state.plannedActivities =
+    drafts;
+
+  state.plannedActivities.forEach(
+    plan => {
+      plan.projectId =
+        project.id;
+    }
+  );
+
+  await savePlannerPlanning();
+}
               );
             }
           }
@@ -4976,7 +5052,14 @@ if (addButton) {
     await addPlannerActivity();
   });
 }
+const saveButton = $("savePlannerPlanning");
 
+if (saveButton) {
+  saveButton.addEventListener(
+    "click",
+    savePlannerPlanning
+  );
+}
   $("clearPlannerActivity")
     ?.addEventListener(
       "click",
@@ -4985,6 +5068,11 @@ if (addButton) {
           true
         )
     );
+   $("savePlannerPlanning")
+  ?.addEventListener(
+    "click",
+    savePlannerPlanning
+  );
 
 
   document
