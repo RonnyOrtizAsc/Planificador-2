@@ -1641,22 +1641,65 @@ footer{
 
 
 /* =========================================================
-   RESPONSIVE — TABLET
+   RESPONSIVE — FORMULARIO Y LAYOUT
 ========================================================= */
 
-@media(max-width:1100px){
+/* =========================================================
+   LAPTOP / TABLET GRANDE
+========================================================= */
 
-  :root{
-    --sidebar-width:210px;
-  }
+@media (max-width:1400px) and (min-width:1101px){
 
   .planner-form-grid{
     grid-template-columns:
-      repeat(2,minmax(0,1fr));
+      minmax(0,1fr)
+      minmax(0,1.15fr)
+      minmax(0,2fr)
+      minmax(0,1.2fr);
+
+    gap:14px;
   }
 
-  .field-wide{
-    grid-column:span 2;
+  /* FASE */
+  .planner-form-grid > .field:has(#plannerPhase){
+    grid-column:1;
+    grid-row:1;
+  }
+
+  /* DEPENDENCIA */
+  .planner-form-grid > .field:has(#plannerDependency){
+    grid-column:2;
+    grid-row:1;
+  }
+
+  /* ACTIVIDAD */
+  .planner-form-grid > .field:has(#plannerActivity){
+    grid-column:3;
+    grid-row:1;
+  }
+
+  /* ENCARGADO */
+  .planner-form-grid > .field:has(#plannerManager){
+    grid-column:4;
+    grid-row:1;
+  }
+
+  /* DURACIÓN */
+  .planner-form-grid > .field:has(#plannerDuration){
+    grid-column:1;
+    grid-row:2;
+  }
+
+  /* TURNO */
+  .planner-form-grid > .field:has(#plannerShift){
+    grid-column:2;
+    grid-row:2;
+  }
+
+  /* ASIGNAR */
+  .planner-form-grid > .field.field-wide:has(#plannerEmployees){
+    grid-column:3 / -1;
+    grid-row:2 / span 2;
   }
 
   .planning-visual-grid{
@@ -1670,15 +1713,88 @@ footer{
   .gantt-card{
     min-height:0;
   }
-
 }
 
 
 /* =========================================================
-   RESPONSIVE — MOBILE
+   TABLET
 ========================================================= */
 
-@media(max-width:760px){
+@media (max-width:1100px){
+
+  :root{
+    --sidebar-width:210px;
+  }
+
+  .planner-form-grid{
+    grid-template-columns:
+      repeat(2,minmax(0,1fr));
+
+    gap:14px;
+  }
+
+  /* FASE */
+  .planner-form-grid > .field:has(#plannerPhase){
+    grid-column:1;
+    grid-row:auto;
+  }
+
+  /* DEPENDENCIA */
+  .planner-form-grid > .field:has(#plannerDependency){
+    grid-column:2;
+    grid-row:auto;
+  }
+
+  /* ACTIVIDAD */
+  .planner-form-grid > .field:has(#plannerActivity){
+    grid-column:1;
+    grid-row:auto;
+  }
+
+  /* ENCARGADO */
+  .planner-form-grid > .field:has(#plannerManager){
+    grid-column:2;
+    grid-row:auto;
+  }
+
+  /* DURACIÓN */
+  .planner-form-grid > .field:has(#plannerDuration){
+    grid-column:1;
+    grid-row:auto;
+  }
+
+  /* TURNO */
+  .planner-form-grid > .field:has(#plannerShift){
+    grid-column:2;
+    grid-row:auto;
+  }
+
+  /* ASIGNAR
+     Ahora ocupa una fila completa */
+  .planner-form-grid > .field.field-wide:has(#plannerEmployees){
+    grid-column:1 / -1;
+    grid-row:auto;
+  }
+
+  .planning-visual-grid{
+    grid-template-columns:1fr;
+  }
+
+  .dependency-card{
+    min-height:0;
+  }
+
+  .gantt-card{
+    min-height:0;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width:760px){
 
   :root{
     --sidebar-width:0px;
@@ -1695,38 +1811,26 @@ footer{
 
   .topbar{
     height:58px;
-
     justify-content:space-between;
-
     padding:0 18px;
   }
 
   .mobile-brand{
     display:flex;
-
     align-items:center;
-
     gap:8px;
-
     font-size:11px;
-
     font-weight:800;
   }
 
   .mobile-brand span{
     width:27px;
     height:27px;
-
     border-radius:7px;
-
     display:grid;
-
     place-items:center;
-
     background:var(--lime);
-
     color:#111;
-
     font-size:9px;
   }
 
@@ -1736,13 +1840,11 @@ footer{
 
   .hero{
     display:block;
-
     margin-bottom:25px;
   }
 
   h1{
     font-size:36px;
-
     margin-top:10px;
   }
 
@@ -1752,13 +1854,9 @@ footer{
 
   .hero-date{
     margin-top:22px;
-
     min-width:0;
-
     border-left:0;
-
     border-top:1px solid var(--line);
-
     padding:15px 0 0;
   }
 
@@ -1768,12 +1866,25 @@ footer{
 
   .planner-form-card{
     padding:20px 17px;
+    overflow:hidden;
   }
 
   .planner-form-grid{
     grid-template-columns:1fr;
-
     gap:14px;
+  }
+
+  /* Todos los campos ocupan una sola columna */
+  .planner-form-grid > .field:has(#plannerPhase),
+  .planner-form-grid > .field:has(#plannerDependency),
+  .planner-form-grid > .field:has(#plannerActivity),
+  .planner-form-grid > .field:has(#plannerManager),
+  .planner-form-grid > .field:has(#plannerDuration),
+  .planner-form-grid > .field:has(#plannerShift),
+  .planner-form-grid > .field.field-wide:has(#plannerEmployees){
+
+    grid-column:1;
+    grid-row:auto;
   }
 
   .field-wide{
@@ -1782,31 +1893,26 @@ footer{
 
   .planner-form-footer{
     align-items:flex-start;
-
     flex-direction:column;
   }
 
   .planner-actions{
     width:100%;
-
     justify-content:flex-end;
   }
 
   .planning-visual-grid{
     grid-template-columns:1fr;
-
     gap:14px;
   }
 
   .section-header{
     padding:19px 17px 15px;
-
     flex-direction:column;
   }
 
   .dependency-scheme{
     padding:17px;
-
     min-height:350px;
   }
 
@@ -1816,23 +1922,18 @@ footer{
 
   .master-table-header{
     align-items:flex-start;
-
     flex-direction:column;
-
     padding:20px 17px 15px;
   }
 
   .master-filters{
     padding:0 17px 15px;
-
     display:grid;
-
     grid-template-columns:1fr 1fr;
   }
 
   .master-filters select{
     min-width:0;
-
     width:100%;
   }
 
@@ -1846,19 +1947,15 @@ footer{
 
   footer{
     padding:0 18px 25px;
-
     flex-direction:column;
-
     align-items:flex-start;
-
     gap:7px;
   }
-
 }
 
 
 /* =========================================================
-   RESPONSIVE — VERY SMALL
+   VERY SMALL
 ========================================================= */
 
 @media(max-width:430px){
@@ -1869,7 +1966,6 @@ footer{
 
   .planner-actions{
     flex-direction:column-reverse;
-
     align-items:stretch;
   }
 
@@ -1883,17 +1979,26 @@ footer{
 
   .connection{
     max-width:145px;
-
     overflow:hidden;
-
     white-space:nowrap;
-
     text-overflow:ellipsis;
   }
 
+  .planner-form-grid{
+    min-width:0;
+  }
+
+  .field,
+  .field-wide,
+  .employee-selector{
+    min-width:0;
+    max-width:100%;
+  }
+
+  .employee-option{
+    min-width:0 !important;
+  }
 }
-
-
 /* =========================================================
    ESCENARIOS — UI RESTAURADA (base original)
 ========================================================= */
