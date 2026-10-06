@@ -5854,7 +5854,2620 @@ function installFinalPatch(){
 /* Wait one tick so V3 initialization and Sheets data are complete. */
 setTimeout(installFinalPatch,0);
 setTimeout(()=>{try{renderCriticalPath();refreshEmployeeAvailability();}catch(e){console.warn(e);}},800);
+/* =========================================================
+   V5 — DEPENDENCIAS MÚLTIPLES + FS / SS / FF
+========================================================= */
 
+function v5ParseDependencyString(rawValue) {
+  const text = String(rawValue ?? "").trim();
+
+  if (!text) {
+    return [];
+  }
+
+  return text
+    .split(",")
+    .map(token => token.trim())
+    .filter(Boolean)
+    .map(token => {
+      const parts = token.split("|");
+
+      return {
+        id: String(parts[0] || "").trim(),
+        type: String(parts[1] || "FS").trim().toUpperCase()
+      };
+    })
+    .filter(item => item.id);
+}
+
+
+function v5NormalizeDependencies(value) {
+
+  if (Array.isArray(value)) {
+
+    return value
+      .map(item => ({
+        id: String(
+          item?.id ||
+          item?.dependencyId ||
+          ""
+        ).trim(),
+
+        type: String(
+          item?.type ||
+          "FS"
+        ).trim().toUpperCase()
+      }))
+      .filter(
+        item =>
+          item.id &&
+          ["FS", "SS", "FF"].includes(item.type)
+      );
+  }
+
+  return v5ParseDependencyString(value)
+    .map(item => ({
+      id: item.id,
+      type:
+        ["FS", "SS", "FF"].includes(item.type)
+          ? item.type
+          : "FS"
+    }));
+}
+
+
+function v5EncodeDependencies(list) {
+
+  return v5NormalizeDependencies(list)
+    .map(
+      item =>
+        `${item.id}|${item.type}`
+    )
+    .join(",");
+}
+
+
+function v5GetDependencies(plan) {
+
+  if (
+    Array.isArray(plan?.dependencies) &&
+    plan.dependencies.length
+  ) {
+    return v5NormalizeDependencies(
+      plan.dependencies
+    );
+  }
+
+  if (plan?.dependencyId) {
+    return [
+      {
+        id: String(plan.dependencyId),
+        type: String(
+          plan.dependencyType ||
+          "FS"
+        ).toUpperCase()
+      }
+    ];
+  }
+
+  return [];
+}
+
+
+function v5SetDependencies(plan, list) {
+
+  const deps =
+    v5NormalizeDependencies(list);
+
+  plan.dependencies = deps;
+
+  plan.dependencyId =
+    deps[0]?.id ||
+    null;
+
+  plan.dependencyType =
+    deps[0]?.type ||
+    "FS";
+
+  plan.dependencyName =
+    deps
+      .map(dep => {
+
+        const found =
+          state.plannedActivities.find(
+            item =>
+              String(item.id) ===
+              String(dep.id)
+          );
+
+        return found
+          ? `${found.name} (${dep.type})`
+          : `${dep.id} (${dep.type})`;
+      })
+      .join(", ");
+}
+
+
+/* =========================================================
+   NORMALIZAR PLAN
+========================================================= */
+
+function normalizePlan(raw) {
+
+  const team =
+    raw.EQUIPO ??
+    raw.equipo ??
+    "";
+
+  const employeeIds =
+    Array.isArray(team)
+      ? team
+          .map(String)
+          .filter(Boolean)
+      : String(team)
+          .split(",")
+          .map(v => v.trim())
+          .filter(Boolean);
+
+  const encodedDeps =
+    raw.DEPENDENCIA ??
+    raw.dependencyIds ??
+    raw.dependencyId ??
+    "";
+
+  const dependencies =
+    v5NormalizeDependencies(
+      encodedDeps
+    );
+
+  const dependencyId =
+    dependencies[0]?.id ||
+    "";
+
+  const dependencyType =
+    dependencies[0]?.type ||
+    "FS";
+
+  return {
+
+    id:
+      raw.ID_PLAN ??
+      raw.id ??
+      "",
+
+    projectId:
+      raw.ID_PROYECTO ??
+      raw.projectId ??
+      "",
+
+    activityId:
+      raw.ID_ACTIVIDAD ??
+      raw.activityId ??
+      "",
+
+    phase:
+      raw.FASE ??
+      raw.phase ??
+      "",
+
+    subarea:
+      raw.SUBÁREA ??
+      raw.SUBAREA ??
+      raw.subarea ??
+      "",
+
+    name:
+      raw.ACTIVIDAD ??
+      raw.name ??
+      "",
+
+    quantity:
+      number(
+        raw.CANTIDAD ??
+        raw.quantity
+      ),
+
+    unit:
+      raw.UNIDAD ??
+      raw.unit ??
+      "",
+
+    yield:
+      number(
+        raw.RENDIMIENTO ??
+        raw.yield
+      ),
+
+    yieldUnit:
+      raw.UNIDAD_RENDIMIENTO ??
+      raw.yieldUnit ??
+      "",
+
+    duration:
+      number(
+        raw.DURACION ??
+        raw.duration,
+        1
+      ),
+
+    start:
+      parseDate(
+        raw.INICIO ??
+        raw.start
+      ),
+
+    end:
+      parseDate(
+        raw.FIN ??
+        raw.end
+      ),
+
+    shift:
+      raw.TURNO ??
+      raw.shift ??
+      "Diurno",
+
+    dependencies,
+
+    dependencyId,
+
+    dependencyType,
+
+    dependencyName:
+      dependencies
+        .map(dep => {
+
+          const found =
+            state.plannedActivities?.find(
+              item =>
+                String(item.id) ===
+                String(dep.id)
+            );
+
+          return found
+            ? `${found.name} (${dep.type})`
+            : `${dep.id} (${dep.type})`;
+        })
+        .join(", "),
+
+    manager:
+      raw.ENCARGADO ??
+      raw.manager ??
+      "",
+
+    employees:
+      employeeIds,
+
+    status:
+      raw.ESTADO ??
+      raw.status ??
+      "Pendiente"
+  };
+}
+
+
+function v5NormalizeExistingPlan(plan) {
+
+  if (!plan) {
+    return plan;
+  }
+
+  const deps =
+    v5GetDependencies(plan);
+
+  plan.dependencies =
+    deps;
+
+  plan.dependencyId =
+    deps[0]?.id ||
+    null;
+
+  plan.dependencyType =
+    deps[0]?.type ||
+    "FS";
+
+  plan.dependencyName =
+    deps
+      .map(dep => {
+
+        const found =
+          state.plannedActivities.find(
+            item =>
+              String(item.id) ===
+              String(dep.id)
+          );
+
+        return found
+          ? `${found.name} (${dep.type})`
+          : `${dep.id} (${dep.type})`;
+      })
+      .join(", ");
+
+  return plan;
+}
+
+
+/* =========================================================
+   SELECTOR DE DEPENDENCIAS
+========================================================= */
+
+function ensureDependencyPicker() {
+
+  const select =
+    $("plannerDependency");
+
+  if (!select) {
+    return null;
+  }
+
+  select.multiple = true;
+
+  select.size = 5;
+
+  select.title =
+    "Puedes seleccionar varias actividades. En Windows usa Ctrl + clic.";
+
+  select.style.minHeight =
+    "110px";
+
+  select.style.padding =
+    "6px";
+
+  select.dataset.v5DependencyPicker =
+    "1";
+
+  let help =
+    $("plannerDependencyHelp");
+
+  if (!help) {
+
+    help =
+      document.createElement(
+        "small"
+      );
+
+    help.id =
+      "plannerDependencyHelp";
+
+    help.textContent =
+      "Puedes seleccionar varias. Ctrl + clic para seleccionar más de una.";
+
+    help.style.cssText =
+      "display:block;margin-top:5px;color:#8a928b;font-size:9px;line-height:1.35;";
+
+    select.parentElement?.appendChild(
+      help
+    );
+  }
+
+  let rules =
+    $("plannerDependencyRules");
+
+  if (!rules) {
+
+    rules =
+      document.createElement(
+        "div"
+      );
+
+    rules.id =
+      "plannerDependencyRules";
+
+    rules.style.cssText =
+      "display:grid;gap:6px;margin-top:8px;";
+
+    select.parentElement?.appendChild(
+      rules
+    );
+  }
+
+  select.removeEventListener(
+    "change",
+    renderDependencyRules
+  );
+
+  select.addEventListener(
+    "change",
+    renderDependencyRules
+  );
+
+  return select;
+}
+
+
+function populateDependencies() {
+
+  const select =
+    ensureDependencyPicker();
+
+  if (!select) {
+    return;
+  }
+
+  const previous =
+    new Set(
+      Array.from(
+        select.selectedOptions || []
+      ).map(
+        option =>
+          String(option.value)
+      )
+    );
+
+  select.innerHTML =
+    `<option value="">Sin dependencia</option>`;
+
+  state.plannedActivities.forEach(
+    (activity, index) => {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        String(index);
+
+      option.textContent =
+        `${index + 1}. ${activity.name}`;
+
+      if (
+        previous.has(
+          String(index)
+        )
+      ) {
+        option.selected = true;
+      }
+
+      select.appendChild(
+        option
+      );
+    }
+  );
+
+  if (
+    state.plannedActivities.length === 0
+  ) {
+    select.value = "";
+  }
+
+  renderDependencyRules();
+}
+
+
+function renderDependencyRules() {
+
+  const select =
+    $("plannerDependency");
+
+  const rules =
+    $("plannerDependencyRules");
+
+  if (
+    !select ||
+    !rules
+  ) {
+    return;
+  }
+
+  const selected =
+    Array.from(
+      select.selectedOptions || []
+    ).filter(
+      option =>
+        option.value !== ""
+    );
+
+  const previous =
+    new Map(
+      Array.from(
+        rules.querySelectorAll(
+          ".planner-dep-type"
+        )
+      ).map(
+        el => [
+          String(el.dataset.depId),
+          el.value
+        ]
+      )
+    );
+
+  rules.innerHTML = "";
+
+  selected.forEach(
+    option => {
+
+      const activity =
+        state.plannedActivities[
+          Number(option.value)
+        ];
+
+      if (!activity) {
+        return;
+      }
+
+      const deps =
+        v5GetDependencies(
+          activity
+        );
+
+      const existing =
+        deps.find(
+          dep =>
+            String(dep.id) ===
+            String(activity.id)
+        );
+
+      const current =
+        previous.get(
+          String(activity.id)
+        ) ||
+        existing?.type ||
+        "FS";
+
+      const row =
+        document.createElement(
+          "div"
+        );
+
+      row.style.cssText =
+        "display:grid;grid-template-columns:minmax(0,1fr) 82px;gap:6px;align-items:center;";
+
+      const name =
+        document.createElement(
+          "span"
+        );
+
+      name.textContent =
+        activity.name;
+
+      name.style.cssText =
+        "font-size:9px;font-weight:700;color:#697169;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+      const type =
+        document.createElement(
+          "select"
+        );
+
+      type.className =
+        "planner-dep-type";
+
+      type.dataset.depId =
+        activity.id;
+
+      type.innerHTML =
+        `<option value="FS">FS</option>
+         <option value="SS">SS</option>
+         <option value="FF">FF</option>`;
+
+      type.value =
+        ["FS", "SS", "FF"].includes(
+          current
+        )
+          ? current
+          : "FS";
+
+      type.style.cssText =
+        "height:30px;font-size:9px;";
+
+      row.appendChild(
+        name
+      );
+
+      row.appendChild(
+        type
+      );
+
+      rules.appendChild(
+        row
+      );
+    }
+  );
+}
+
+
+function getDependencyLinks() {
+
+  const select =
+    ensureDependencyPicker();
+
+  if (!select) {
+    return [];
+  }
+
+  return Array.from(
+    select.selectedOptions || []
+  )
+    .filter(
+      option =>
+        option.value !== ""
+    )
+    .map(option => {
+
+      const activity =
+        state.plannedActivities[
+          Number(option.value)
+        ];
+
+      if (!activity) {
+        return null;
+      }
+
+      const typeEl =
+        Array.from(
+          document.querySelectorAll(
+            ".planner-dep-type"
+          )
+        ).find(
+          el =>
+            String(el.dataset.depId) ===
+            String(activity.id)
+        );
+
+      return {
+        id:
+          activity.id,
+
+        type:
+          typeEl?.value ||
+          "FS"
+      };
+    })
+    .filter(Boolean);
+}
+
+
+function getDependency() {
+
+  const deps =
+    getDependencyLinks();
+
+  if (!deps.length) {
+    return null;
+  }
+
+  return state.plannedActivities.find(
+    item =>
+      String(item.id) ===
+      String(deps[0].id)
+  ) || null;
+}
+
+
+/* =========================================================
+   EVITAR CICLOS
+========================================================= */
+
+function dependencyWouldCycle(
+  activityId,
+  dependencyId
+) {
+
+  if (
+    !activityId ||
+    !dependencyId
+  ) {
+    return false;
+  }
+
+  const target =
+    String(activityId);
+
+  const stack =
+    [String(dependencyId)];
+
+  const seen =
+    new Set();
+
+  while (
+    stack.length
+  ) {
+
+    const current =
+      stack.pop();
+
+    if (
+      !current ||
+      seen.has(current)
+    ) {
+      continue;
+    }
+
+    if (
+      current === target
+    ) {
+      return true;
+    }
+
+    seen.add(
+      current
+    );
+
+    const item =
+      state.plannedActivities.find(
+        x =>
+          String(x.id) ===
+          current
+      );
+
+    v5GetDependencies(
+      item
+    ).forEach(
+      dep =>
+        stack.push(
+          String(dep.id)
+        )
+    );
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   FECHAS FS / SS / FF
+========================================================= */
+
+function subtractWorkDays(
+  value,
+  amount
+) {
+
+  let d =
+    parseDate(value);
+
+  if (!d) {
+    return null;
+  }
+
+  let remaining =
+    Math.max(
+      0,
+      Math.floor(
+        Number(amount) || 0
+      )
+    );
+
+  while (
+    remaining > 0
+  ) {
+
+    d =
+      addDays(
+        d,
+        -1
+      );
+
+    if (
+      isWorkingDay(d)
+    ) {
+      remaining--;
+    }
+  }
+
+  return nextWorkingDay(d);
+}
+
+
+function v5MaxDate(
+  a,
+  b
+) {
+
+  const da =
+    parseDate(a);
+
+  const db =
+    parseDate(b);
+
+  if (!da) {
+    return db;
+  }
+
+  if (!db) {
+    return da;
+  }
+
+  return da.getTime() >= db.getTime()
+    ? da
+    : db;
+}
+
+
+function v5CandidateStart(
+  dependency,
+  type,
+  duration
+) {
+
+  if (!dependency) {
+    return null;
+  }
+
+  const t =
+    String(
+      type || "FS"
+    ).toUpperCase();
+
+  if (
+    t === "SS"
+  ) {
+    return nextWorkingDay(
+      dependency.start
+    );
+  }
+
+  if (
+    t === "FF"
+  ) {
+    return subtractWorkDays(
+      dependency.end,
+      Math.max(
+        1,
+        Number(duration) || 1
+      ) - 1
+    );
+  }
+
+  return addWorkDays(
+    dependency.end,
+    1
+  );
+}
+
+
+function v5CalculateStartForDependencies(
+  duration,
+  links
+) {
+
+  let start =
+    nextWorkingDay(
+      state.currentProject?.start ||
+      CONFIG.projectStart
+    );
+
+  const deps =
+    v5NormalizeDependencies(
+      links
+    );
+
+  deps.forEach(
+    link => {
+
+      const dependency =
+        state.plannedActivities.find(
+          item =>
+            String(item.id) ===
+            String(link.id)
+        );
+
+      const candidate =
+        v5CandidateStart(
+          dependency,
+          link.type,
+          duration
+        );
+
+      start =
+        v5MaxDate(
+          start,
+          candidate
+        );
+    }
+  );
+
+  return start;
+}
+
+
+function calculateStartDate() {
+
+  const duration =
+    Math.max(
+      1,
+      Math.ceil(
+        getInputDurationDays() ||
+        1
+      )
+    );
+
+  return v5CalculateStartForDependencies(
+    duration,
+    getDependencyLinks()
+  );
+}
+
+
+/* =========================================================
+   GUARDAR DEPENDENCIAS
+========================================================= */
+
+function planToPayload(
+  planned
+) {
+
+  return {
+
+    ID_PLAN:
+      planned.sheetId ||
+      planned.id ||
+      "",
+
+    ID_PROYECTO:
+      state.currentProject.id,
+
+    ID_ACTIVIDAD:
+      planned.activityId,
+
+    FASE:
+      planned.phase,
+
+    SUBÁREA:
+      planned.subarea ||
+      "",
+
+    ACTIVIDAD:
+      planned.name,
+
+    CANTIDAD:
+      planned.quantity,
+
+    UNIDAD:
+      planned.unit,
+
+    RENDIMIENTO:
+      planned.yield ||
+      "",
+
+    UNIDAD_RENDIMIENTO:
+      planned.yieldUnit ||
+      "",
+
+    DURACION:
+      planned.duration,
+
+    INICIO:
+      formatISODate(
+        planned.start
+      ),
+
+    FIN:
+      formatISODate(
+        planned.end
+      ),
+
+    ENCARGADO:
+      planned.manager ||
+      "",
+
+    TURNO:
+      planned.shift ||
+      "Diurno",
+
+    DEPENDENCIA:
+      v5EncodeDependencies(
+        planned.dependencies ||
+        (
+          planned.dependencyId
+            ? [{
+                id:
+                  planned.dependencyId,
+                type:
+                  planned.dependencyType ||
+                  "FS"
+              }]
+            : []
+        )
+      ),
+
+    EQUIPO:
+      (planned.employees || [])
+        .map(
+          employee =>
+            typeof employee === "object"
+              ? employee.id
+              : employee
+        )
+        .filter(Boolean)
+        .join(","),
+
+    ESTADO:
+      planned.status ||
+      "Pendiente"
+  };
+}
+
+
+async function savePlan(
+  planned
+) {
+
+  const oldId =
+    planned.sheetId ||
+    planned.id ||
+    "";
+
+  const result =
+    await api(
+      "saveActivity",
+      planToPayload(
+        planned
+      )
+    );
+
+  planned.id =
+    result.id;
+
+  planned.sheetId =
+    result.id;
+
+  if (
+    oldId &&
+    String(oldId) !==
+    String(result.id)
+  ) {
+
+    state.plannedActivities.forEach(
+      item => {
+
+        if (
+          item === planned
+        ) {
+          return;
+        }
+
+        const deps =
+          v5GetDependencies(
+            item
+          ).map(
+            dep =>
+              String(dep.id) ===
+              String(oldId)
+                ? {
+                    ...dep,
+                    id:
+                      result.id
+                  }
+                : dep
+          );
+
+        v5SetDependencies(
+          item,
+          deps
+        );
+      }
+    );
+  }
+
+  const normalized =
+    normalizePlan(
+      {
+        ...planToPayload(
+          planned
+        ),
+
+        ID_PLAN:
+          result.id
+      }
+    );
+
+  const index =
+    state.allPlans.findIndex(
+      item =>
+        String(item.id) ===
+        String(result.id)
+    );
+
+  if (
+    index >= 0
+  ) {
+    state.allPlans[index] =
+      normalized;
+  } else {
+    state.allPlans.push(
+      normalized
+    );
+  }
+
+  return result;
+}
+
+
+/* =========================================================
+   RECALCULAR FECHAS
+========================================================= */
+
+function recalculateAllDates() {
+
+  const activities =
+    state.plannedActivities ||
+    [];
+
+  const byId =
+    new Map(
+      activities.map(
+        a => [
+          String(a.id),
+          a
+        ]
+      )
+    );
+
+  const done =
+    new Set();
+
+  const visiting =
+    new Set();
+
+  function visit(
+    activity
+  ) {
+
+    const id =
+      String(activity.id);
+
+    if (
+      done.has(id)
+    ) {
+      return;
+    }
+
+    if (
+      visiting.has(id)
+    ) {
+      return;
+    }
+
+    visiting.add(id);
+
+    const duration =
+      Math.max(
+        1,
+        Number(activity.duration) ||
+        1
+      );
+
+    let start =
+      nextWorkingDay(
+        state.currentProject?.start ||
+        CONFIG.projectStart
+      );
+
+    const deps =
+      v5GetDependencies(
+        activity
+      );
+
+    deps.forEach(
+      link => {
+
+        const dependency =
+          byId.get(
+            String(link.id)
+          );
+
+        if (!dependency) {
+          return;
+        }
+
+        visit(
+          dependency
+        );
+
+        const candidate =
+          v5CandidateStart(
+            dependency,
+            link.type,
+            duration
+          );
+
+        start =
+          v5MaxDate(
+            start,
+            candidate
+          );
+      }
+    );
+
+    activity.start =
+      start;
+
+    activity.end =
+      addWorkDays(
+        start,
+        duration - 1
+      );
+
+    visiting.delete(id);
+    done.add(id);
+  }
+
+  activities.forEach(
+    visit
+  );
+}
+
+
+/* =========================================================
+   EDICIÓN
+========================================================= */
+
+function beginEditPlannerActivity(
+  id
+) {
+
+  const item =
+    state.plannedActivities.find(
+      x =>
+        String(x.id) ===
+        String(id)
+    );
+
+  if (!item) {
+    return;
+  }
+
+  ORBE.editId =
+    item.id;
+
+  state.editingPlanId =
+    item.id;
+
+  ensureDependencyPicker();
+
+  populateDependencies();
+
+  const activityIndex =
+    state.activities.findIndex(
+      x =>
+        String(x.id) ===
+        String(item.activityId)
+    );
+
+  if (
+    $("plannerActivity") &&
+    activityIndex >= 0
+  ) {
+    $("plannerActivity").value =
+      activityIndex;
+  }
+
+  if (
+    $("plannerManager")
+  ) {
+    $("plannerManager").value =
+      item.manager ||
+      "";
+  }
+
+  if (
+    $("plannerDuration")
+  ) {
+    $("plannerDuration").value =
+      item.duration ||
+      "";
+  }
+
+  if (
+    $("plannerShift")
+  ) {
+    $("plannerShift").value =
+      item.shift ||
+      "Diurno";
+  }
+
+  onActivitySelected();
+
+  const depIds =
+    new Set(
+      v5GetDependencies(
+        item
+      ).map(
+        dep =>
+          String(dep.id)
+      )
+    );
+
+  const select =
+    $("plannerDependency");
+
+  if (select) {
+
+    Array.from(
+      select.options
+    ).forEach(
+      option => {
+
+        const activity =
+          state.plannedActivities[
+            Number(option.value)
+          ];
+
+        option.selected =
+          !!activity &&
+          depIds.has(
+            String(activity.id)
+          );
+      }
+    );
+
+    renderDependencyRules();
+
+    v5GetDependencies(
+      item
+    ).forEach(
+      dep => {
+
+        const typeEl =
+          Array.from(
+            document.querySelectorAll(
+              ".planner-dep-type"
+            )
+          ).find(
+            el =>
+              String(el.dataset.depId) ===
+              String(dep.id)
+          );
+
+        if (typeEl) {
+          typeEl.value =
+            dep.type;
+        }
+      }
+    );
+  }
+
+  state.selectedEmployees =
+    (item.employees || [])
+      .map(
+        e =>
+          typeof e === "object"
+            ? e
+            : state.employees.find(
+                x =>
+                  String(x.id) ===
+                  String(e)
+              )
+      )
+      .filter(Boolean);
+
+  renderEmployeeSelector();
+
+  const add =
+    $("addPlannerActivity");
+
+  if (add) {
+    add.textContent =
+      "Guardar cambios";
+  }
+
+  let cancel =
+    $("cancelEditPlannerActivity");
+
+  if (
+    !cancel &&
+    add
+  ) {
+
+    cancel =
+      document.createElement(
+        "button"
+      );
+
+    cancel.type =
+      "button";
+
+    cancel.id =
+      "cancelEditPlannerActivity";
+
+    cancel.className =
+      "secondary";
+
+    cancel.textContent =
+      "Cancelar edición";
+
+    add.parentNode?.appendChild(
+      cancel
+    );
+
+    cancel.addEventListener(
+      "click",
+      cancelEditPlannerActivity
+    );
+  }
+
+  document
+    .querySelector(
+      "#plannerActivity"
+    )
+    ?.scrollIntoView({
+      behavior:
+        "smooth",
+      block:
+        "center"
+    });
+}
+
+
+/* =========================================================
+   ELIMINAR ACTIVIDAD
+========================================================= */
+
+function removePlannerActivity(
+  id
+) {
+
+  const index =
+    state.plannedActivities.findIndex(
+      item =>
+        String(item.id) ===
+        String(id)
+    );
+
+  if (
+    index < 0
+  ) {
+    return;
+  }
+
+  const planned =
+    state.plannedActivities[
+      index
+    ];
+
+  if (
+    !confirm(
+      `¿Eliminar "${planned.name}" del proyecto?`
+    )
+  ) {
+    return;
+  }
+
+  const finish =
+    async () => {
+
+      if (
+        planned.sheetId
+      ) {
+
+        await api(
+          "deleteActivity",
+          null,
+          planned.sheetId
+        );
+
+        state.allPlans =
+          state.allPlans.filter(
+            item =>
+              String(item.id) !==
+              String(planned.sheetId)
+          );
+      }
+
+      state.plannedActivities.splice(
+        index,
+        1
+      );
+
+      state.plannedActivities.forEach(
+        item => {
+
+          const deps =
+            v5GetDependencies(
+              item
+            ).filter(
+              dep =>
+                String(dep.id) !==
+                String(id)
+            );
+
+          v5SetDependencies(
+            item,
+            deps
+          );
+        }
+      );
+
+      recalculateAllDates();
+
+      for (
+        const item
+        of state.plannedActivities
+      ) {
+
+        if (
+          item.sheetId
+        ) {
+          await savePlan(
+            item
+          );
+        }
+      }
+
+      populateDependencies();
+
+      renderAllPlannerViews();
+    };
+
+  finish().catch(
+    error => {
+
+      console.error(
+        error
+      );
+
+      alert(
+        "No se pudo eliminar la actividad:\n\n" +
+        error.message
+      );
+    }
+  );
+}
+
+
+/* =========================================================
+   LIMPIAR FORMULARIO
+========================================================= */
+
+function clearActivityForm(
+  clearActivity = true
+) {
+
+  if (
+    clearActivity &&
+    $("plannerActivity")
+  ) {
+    $("plannerActivity").value =
+      "";
+  }
+
+  if (
+    $("plannerPhase")
+  ) {
+    $("plannerPhase").value =
+      "";
+  }
+
+  if (
+    $("plannerDependency")
+  ) {
+
+    Array.from(
+      $("plannerDependency").options
+    ).forEach(
+      option =>
+        option.selected =
+          false
+    );
+
+    $("plannerDependency").value =
+      "";
+  }
+
+  if (
+    $("plannerDependencyRules")
+  ) {
+    $("plannerDependencyRules").innerHTML =
+      "";
+  }
+
+  if (
+    $("plannerDuration")
+  ) {
+    $("plannerDuration").value =
+      "";
+  }
+
+  if (
+    $("plannerManager")
+  ) {
+    $("plannerManager").value =
+      "";
+  }
+
+  state.selectedEmployees =
+    [];
+
+  renderEmployeeSelector();
+
+  renderActivityInfo();
+
+  calculatePlannerRequirement();
+}
+
+
+/* =========================================================
+   AGREGAR / EDITAR ACTIVIDAD
+========================================================= */
+
+async function addPlannerActivityFinal() {
+
+  const editing =
+    !!ORBE.editId;
+
+  const item =
+    editing
+      ? state.plannedActivities.find(
+          x =>
+            String(x.id) ===
+            String(
+              ORBE.editId
+            )
+        )
+      : null;
+
+  if (
+    editing &&
+    !item
+  ) {
+
+    ORBE.editId =
+      null;
+
+    return;
+  }
+
+  const activityIndex =
+    Number(
+      $("plannerActivity")?.value
+    );
+
+  const activity =
+    state.activities[
+      activityIndex
+    ];
+
+  if (!activity) {
+    alert(
+      "Selecciona una actividad."
+    );
+    return;
+  }
+
+  if (
+    !state.selectedEmployees.length
+  ) {
+
+    alert(
+      "Selecciona al menos un empleado para formar el equipo."
+    );
+
+    return;
+  }
+
+  const recommendation =
+    findYield(
+      activity
+    );
+
+  if (
+    !recommendation?.yield
+  ) {
+
+    alert(
+      "Esta actividad no tiene rendimiento registrado."
+    );
+
+    return;
+  }
+
+  const entered =
+    getInputDurationDays();
+
+  const duration =
+    Math.max(
+      1,
+      Math.ceil(
+        entered > 0
+          ? entered
+          : estimateDuration(
+              activity,
+              recommendation
+            )
+      )
+    );
+
+  if (!duration) {
+
+    alert(
+      "No se pudo calcular una duración válida."
+    );
+
+    return;
+  }
+
+  const links =
+    getDependencyLinks();
+
+  if (editing) {
+
+    for (
+      const link
+      of links
+    ) {
+
+      if (
+        String(link.id) ===
+          String(item.id) ||
+        dependencyWouldCycle(
+          item.id,
+          link.id
+        )
+      ) {
+
+        alert(
+          "Esa dependencia crea un ciclo. Elige otra actividad."
+        );
+
+        return;
+      }
+    }
+  }
+
+  const start =
+    v5CalculateStartForDependencies(
+      duration,
+      links
+    );
+
+  const end =
+    addWorkDays(
+      start,
+      duration - 1
+    );
+
+  const excludeId =
+    editing
+      ? (
+          item.sheetId ||
+          item.id
+        )
+      : "";
+
+  if (
+    state.currentProject &&
+    !validateProjectEnd(
+      end
+    )
+  ) {
+
+    alert(
+      getProjectEndMessage(
+        end
+      )
+    );
+
+    return;
+  }
+
+  if (
+    state.currentProject &&
+    alertBusyEmployees(
+      start,
+      end,
+      excludeId
+    )
+  ) {
+    return;
+  }
+
+
+  if (editing) {
+
+    item.activityId =
+      activity.id;
+
+    item.phase =
+      activity.phase;
+
+    item.subarea =
+      activity.subarea;
+
+    item.name =
+      activity.name;
+
+    item.quantity =
+      activity.quantity;
+
+    item.unit =
+      activity.unit;
+
+    item.manager =
+      $("plannerManager")?.value ||
+      "";
+
+    item.duration =
+      duration;
+
+    item.start =
+      start;
+
+    item.end =
+      end;
+
+    item.dependencies =
+      links;
+
+    item.dependencyId =
+      links[0]?.id ||
+      null;
+
+    item.dependencyType =
+      links[0]?.type ||
+      "FS";
+
+    item.dependencyName =
+      links
+        .map(
+          link => {
+
+            const found =
+              state.plannedActivities.find(
+                x =>
+                  String(x.id) ===
+                  String(link.id)
+              );
+
+            return found
+              ? `${found.name} (${link.type})`
+              : `${link.id} (${link.type})`;
+          }
+        )
+        .join(", ");
+
+    item.employees =
+      getSelectedEmployees();
+
+    item.yield =
+      recommendation.yield;
+
+    item.yieldUnit =
+      recommendation.yieldUnit ||
+      "";
+
+    item.shift =
+      $("plannerShift")?.value ||
+      "Diurno";
+
+
+    try {
+
+      recalculateAllDates();
+
+      for (
+        const plan
+        of state.plannedActivities
+      ) {
+
+        if (
+          plan.sheetId
+        ) {
+          await savePlan(
+            plan
+          );
+        }
+      }
+
+      ORBE.editId =
+        null;
+
+      state.editingPlanId =
+        "";
+
+      $("addPlannerActivity").textContent =
+        "+ Agregar actividad";
+
+      $("cancelEditPlannerActivity")
+        ?.remove();
+
+      populateDependencies();
+
+      renderAllPlannerViews();
+
+      clearActivityForm(
+        false
+      );
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        error
+      );
+
+      alert(
+        "No se pudieron guardar los cambios:\n\n" +
+        error.message
+      );
+    }
+
+    return;
+  }
+
+
+  const planned = {
+
+    id:
+      `LOCAL-${Date.now()}`,
+
+    sheetId:
+      "",
+
+    projectId:
+      state.currentProject?.id ||
+      "",
+
+    activityId:
+      activity.id,
+
+    phase:
+      activity.phase,
+
+    subarea:
+      activity.subarea,
+
+    name:
+      activity.name,
+
+    quantity:
+      activity.quantity,
+
+    unit:
+      activity.unit,
+
+    manager:
+      $("plannerManager")?.value ||
+      "",
+
+    start,
+
+    end,
+
+    duration,
+
+    dependencies:
+      links,
+
+    dependencyId:
+      links[0]?.id ||
+      null,
+
+    dependencyType:
+      links[0]?.type ||
+      "FS",
+
+    dependencyName:
+      links
+        .map(
+          link => {
+
+            const found =
+              state.plannedActivities.find(
+                x =>
+                  String(x.id) ===
+                  String(link.id)
+              );
+
+            return found
+              ? `${found.name} (${link.type})`
+              : `${link.id} (${link.type})`;
+          }
+        )
+        .join(", "),
+
+    employees:
+      getSelectedEmployees(),
+
+    yield:
+      recommendation.yield,
+
+    yieldUnit:
+      recommendation.yieldUnit ||
+      "",
+
+    shift:
+      $("plannerShift")?.value ||
+      "Diurno",
+
+    status:
+      "Pendiente"
+  };
+
+  state.plannedActivities.push(
+    planned
+  );
+
+  recalculateAllDates();
+
+  populateDependencies();
+
+  renderAllPlannerViews();
+
+  clearActivityForm(
+    false
+  );
+}
+
+
+/* =========================================================
+   RUTA CRÍTICA — MÚLTIPLES DEPENDENCIAS
+========================================================= */
+
+function calculateCPM() {
+
+  const acts =
+    state.plannedActivities ||
+    [];
+
+  const info =
+    new Map();
+
+  const order =
+    [];
+
+  const visiting =
+    new Set();
+
+  const visited =
+    new Set();
+
+
+  function depsOf(
+    activity
+  ) {
+
+    return v5GetDependencies(
+      activity
+    );
+  }
+
+
+  function weight(
+    predecessor,
+    successor,
+    type
+  ) {
+
+    const t =
+      String(
+        type ||
+        "FS"
+      ).toUpperCase();
+
+    const predDuration =
+      Math.max(
+        1,
+        Number(
+          predecessor.duration
+        ) || 1
+      );
+
+    const succDuration =
+      Math.max(
+        1,
+        Number(
+          successor.duration
+        ) || 1
+      );
+
+    if (
+      t === "SS"
+    ) {
+      return 0;
+    }
+
+    if (
+      t === "FF"
+    ) {
+      return (
+        predDuration -
+        succDuration
+      );
+    }
+
+    return predDuration;
+  }
+
+
+  function visit(
+    activity
+  ) {
+
+    const id =
+      String(
+        activity.id
+      );
+
+    if (
+      visited.has(id)
+    ) {
+      return;
+    }
+
+    if (
+      visiting.has(id)
+    ) {
+      return;
+    }
+
+    visiting.add(id);
+
+    depsOf(
+      activity
+    ).forEach(
+      dep => {
+
+        const predecessor =
+          acts.find(
+            x =>
+              String(x.id) ===
+              String(dep.id)
+          );
+
+        if (
+          predecessor
+        ) {
+          visit(
+            predecessor
+          );
+        }
+      }
+    );
+
+    visiting.delete(id);
+
+    visited.add(id);
+
+    order.push(
+      activity
+    );
+  }
+
+
+  acts.forEach(
+    visit
+  );
+
+
+  acts.forEach(
+    activity => {
+
+      info.set(
+        String(
+          activity.id
+        ),
+        {
+          es: 0,
+          ef: Math.max(
+            1,
+            Number(
+              activity.duration
+            ) || 1
+          ),
+          ls: 0,
+          lf: 0,
+          slack: 0,
+          critical: false
+        }
+      );
+    }
+  );
+
+
+  order.forEach(
+    activity => {
+
+      const x =
+        info.get(
+          String(
+            activity.id
+          )
+        );
+
+      let es =
+        0;
+
+      depsOf(
+        activity
+      ).forEach(
+        dep => {
+
+          const predecessor =
+            acts.find(
+              item =>
+                String(item.id) ===
+                String(dep.id)
+            );
+
+          if (
+            !predecessor
+          ) {
+            return;
+          }
+
+          const px =
+            info.get(
+              String(
+                predecessor.id
+              )
+            );
+
+          es =
+            Math.max(
+              es,
+              px.es +
+              weight(
+                predecessor,
+                activity,
+                dep.type
+              )
+            );
+        }
+      );
+
+      x.es =
+        es;
+
+      x.ef =
+        es +
+        Math.max(
+          1,
+          Number(
+            activity.duration
+          ) || 1
+        );
+    }
+  );
+
+
+  const projectEnd =
+    Math.max(
+      0,
+      ...Array.from(
+        info.values()
+      ).map(
+        x => x.ef
+      )
+    );
+
+
+  const successors =
+    new Map(
+      acts.map(
+        activity => [
+          String(
+            activity.id
+          ),
+          []
+        ]
+      )
+    );
+
+
+  acts.forEach(
+    activity => {
+
+      depsOf(
+        activity
+      ).forEach(
+        dep => {
+
+          const list =
+            successors.get(
+              String(
+                dep.id
+              )
+            );
+
+          if (list) {
+
+            list.push(
+              {
+                activity,
+                type:
+                  dep.type
+              }
+            );
+          }
+        }
+      );
+    }
+  );
+
+
+  order
+    .slice()
+    .reverse()
+    .forEach(
+      activity => {
+
+        const x =
+          info.get(
+            String(
+              activity.id
+            )
+          );
+
+        const succ =
+          successors.get(
+            String(
+              activity.id
+            )
+          ) ||
+          [];
+
+        if (
+          !succ.length
+        ) {
+
+          x.lf =
+            projectEnd;
+
+          x.ls =
+            x.lf -
+            Math.max(
+              1,
+              Number(
+                activity.duration
+              ) || 1
+            );
+
+        } else {
+
+          x.ls =
+            Math.min(
+              ...succ.map(
+                link =>
+                  info.get(
+                    String(
+                      link.activity.id
+                    )
+                  ).ls -
+                  weight(
+                    activity,
+                    link.activity,
+                    link.type
+                  )
+              )
+            );
+
+          x.lf =
+            x.ls +
+            Math.max(
+              1,
+              Number(
+                activity.duration
+              ) || 1
+            );
+        }
+
+        x.slack =
+          x.ls -
+          x.es;
+
+        x.critical =
+          x.slack <= 0;
+      }
+    );
+
+
+  return {
+    info,
+    projectEnd
+  };
+}
+
+
+/* =========================================================
+   CRONOGRAMA DE DEPENDENCIAS
+========================================================= */
+
+function renderDependencyScheme() {
+
+  const container =
+    $("dependencyScheme");
+
+  if (!container) {
+    return;
+  }
+
+  const activities =
+    state.plannedActivities ||
+    [];
+
+  if (
+    !activities.length
+  ) {
+
+    container.innerHTML =
+      `<div class="visual-empty">
+        <span>01</span>
+        <strong>Todavía no hay actividades planificadas</strong>
+        <p>Agrega una actividad para comenzar.</p>
+      </div>`;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    activities
+      .map(
+        (activity, index) => {
+
+          const deps =
+            v5GetDependencies(
+              activity
+            );
+
+          const depText =
+            deps.length
+              ? deps
+                  .map(
+                    dep => {
+
+                      const found =
+                        activities.find(
+                          item =>
+                            String(item.id) ===
+                            String(dep.id)
+                        );
+
+                      return found
+                        ? `${found.name} (${dep.type})`
+                        : `${dep.id} (${dep.type})`;
+                    }
+                  )
+                  .join(" · ")
+              : "Inicio del proyecto";
+
+
+          return `
+            <div class="dependency-node">
+
+              <div class="dependency-number">
+                ${String(
+                  index + 1
+                ).padStart(
+                  2,
+                  "0"
+                )}
+              </div>
+
+              <div class="dependency-body">
+
+                <div class="dependency-top">
+
+                  <strong>
+                    ${escapeHTML(
+                      activity.name
+                    )}
+                  </strong>
+
+                  <span
+                    style="
+                      display:flex;
+                      gap:5px;
+                      align-items:center
+                    "
+                  >
+                    <button
+                      type="button"
+                      class="orbe-edit-plan"
+                      data-edit-plan="${escapeHTML(
+                        activity.id
+                      )}"
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      data-delete-plan="${escapeHTML(
+                        activity.id
+                      )}"
+                    >
+                      ×
+                    </button>
+                  </span>
+
+                </div>
+
+                <span>
+                  ${escapeHTML(
+                    activity.phase ||
+                    "Sin fase"
+                  )}
+                  ·
+                  ${escapeHTML(
+                    formatCompact(
+                      activity.quantity
+                    )
+                  )}
+                  ${escapeHTML(
+                    activity.unit ||
+                    ""
+                  )}
+                </span>
+
+                <small>
+                  Depende de:
+                  ${escapeHTML(
+                    depText
+                  )}
+                </small>
+
+              </div>
+
+            </div>
+          `;
+        }
+      )
+      .join("");
+
+
+  container
+    .querySelectorAll(
+      "[data-delete-plan]"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () =>
+            removePlannerActivity(
+              button.dataset.deletePlan
+            )
+        );
+      }
+    );
+
+
+  container
+    .querySelectorAll(
+      "[data-edit-plan]"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () =>
+            beginEditPlannerActivity(
+              button.dataset.editPlan
+            )
+        );
+      }
+    );
+}
+
+
+/* =========================================================
+   NORMALIZAR LO YA CARGADO
+========================================================= */
+
+state.allPlans =
+  (
+    state.allPlans ||
+    []
+  ).map(
+    v5NormalizeExistingPlan
+  );
+
+state.plannedActivities =
+  (
+    state.plannedActivities ||
+    []
+  ).map(
+    v5NormalizeExistingPlan
+  );
+
+ensureDependencyPicker();
+
+populateDependencies();
 })();
 
 /* =========================================================
