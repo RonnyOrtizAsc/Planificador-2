@@ -5423,24 +5423,8 @@ function cancelEditPlannerActivity(){
 /* Override add: same original calculation, but updates when editing. */
 const __orbeAddOriginal = addPlannerActivity;
 
-let pendingActivitySave = false;
 
 async function addPlannerActivityFinal(){
-
-  /*
-   * Se puede planificar sin proyecto.
-   * Si el usuario intenta guardar una actividad,
-   * primero se le pide crear el proyecto.
-   */
-  if(!state.currentProject){
-
-    pendingActivitySave = true;
-
-    openProjectGate();
-    showProjectSection("form");
-
-    return;
-  }
 
   /*
    * Si no estamos editando,
