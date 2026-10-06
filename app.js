@@ -4928,15 +4928,13 @@ function bindEvents() {
     );
 
 
-const addButton = $("addPlannerActivity");
+const saveButton = $("savePlannerPlanning");
 
-if (addButton) {
-  addButton.addEventListener("click", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    await addPlannerActivity();
-  });
+if (saveButton) {
+  saveButton.addEventListener(
+    "click",
+    savePlannerPlanning
+  );
 }
 const saveButton = $("savePlannerPlanning");
 
