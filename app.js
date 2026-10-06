@@ -4724,6 +4724,95 @@ function addProjectButton() {
   );
 }
 
+/* =========================================================
+   MENÚ MÓVIL
+========================================================= */
+
+function openMobileMenu(){
+
+  const sidebar =
+    document.querySelector(
+      ".sidebar"
+    );
+
+  const backdrop =
+    $("mobileMenuBackdrop");
+
+  const button =
+    $("mobileMenuBtn");
+
+  sidebar?.classList.add(
+    "mobile-open"
+  );
+
+  backdrop?.classList.add(
+    "open"
+  );
+
+  document.body.classList.add(
+    "mobile-menu-open"
+  );
+
+  button?.setAttribute(
+    "aria-expanded",
+    "true"
+  );
+}
+
+
+function closeMobileMenu(){
+
+  const sidebar =
+    document.querySelector(
+      ".sidebar"
+    );
+
+  const backdrop =
+    $("mobileMenuBackdrop");
+
+  const button =
+    $("mobileMenuBtn");
+
+  sidebar?.classList.remove(
+    "mobile-open"
+  );
+
+  backdrop?.classList.remove(
+    "open"
+  );
+
+  document.body.classList.remove(
+    "mobile-menu-open"
+  );
+
+  button?.setAttribute(
+    "aria-expanded",
+    "false"
+  );
+}
+
+
+function toggleMobileMenu(){
+
+  const sidebar =
+    document.querySelector(
+      ".sidebar"
+    );
+
+  if(
+    sidebar?.classList.contains(
+      "mobile-open"
+    )
+  ){
+
+    closeMobileMenu();
+
+  }else{
+
+    openMobileMenu();
+
+  }
+}
 
 /* =========================================================
    NAVEGACIÓN
@@ -4967,9 +5056,41 @@ if (saveButton) {
 
 
   document
-    .querySelectorAll(
-      ".nav-item"
-    )
+  .querySelectorAll(
+    ".nav-item"
+  )
+  .forEach(
+    button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          showView(
+            button.dataset.view
+          );
+
+          closeMobileMenu();
+
+        }
+      );
+
+    }
+  );
+
+
+$("mobileMenuBtn")
+  ?.addEventListener(
+    "click",
+    toggleMobileMenu
+  );
+
+
+$("mobileMenuBackdrop")
+  ?.addEventListener(
+    "click",
+    closeMobileMenu
+  );
     .forEach(
       button => {
 
