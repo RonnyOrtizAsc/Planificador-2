@@ -2093,18 +2093,6 @@ async function savePlan(
 
 async function addPlannerActivity() {
 
-  if (
-    !state.currentProject
-  ) {
-
-    openProjectGate();
-
-    alert(
-      "Primero crea o abre un proyecto."
-    );
-
-    return;
-  }
 
 
   const activityIndex =
@@ -2230,7 +2218,7 @@ async function addPlannerActivity() {
       "",
 
     projectId:
-      state.currentProject.id,
+  state.currentProject?.id || "",
 
     activityId:
       activity.id,
