@@ -617,8 +617,21 @@ h1 i{
   text-transform:none;
 }
 
-.field-wide{
-  grid-column:span 2;
+/* DISTRIBUCIÓN DEL FORMULARIO */
+
+.planner-form-grid > .field:has(#plannerDuration){
+  grid-column:1;
+  grid-row:2;
+}
+
+.planner-form-grid > .field:has(#plannerShift){
+  grid-column:1;
+  grid-row:3;
+}
+
+.planner-form-grid > .field.field-wide:has(#plannerEmployees){
+  grid-column:2 / -1;
+  grid-row:2 / span 2;
 }
 
 .field input,
