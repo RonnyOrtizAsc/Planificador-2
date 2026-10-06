@@ -11,7 +11,7 @@
 
 const CONFIG = {
   sheetsUrl:
-    "https://script.google.com/macros/s/AKfycbzQp5bAz8gyBzPGQudNJA2LdoZ9NB7VDMWXsF9c7KJ1BNFG7j-QAjRdu1XVmD-lNkqcLA/exec",
+    "https://script.google.com/macros/s/AKfycbxjMSqsRzFsDyKbHjw6mOeq8GgTtvm5DSgd8PMPV5pEb-lF_SCdfhJnASn6IFZsHFjhDg/exec",
 
   projectStart: "2026-10-16"
 };
