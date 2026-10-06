@@ -2460,6 +2460,11 @@ footer{
   cursor:pointer !important;
 }
 
+.employee-selector-body{
+  display:block !important;
+  width:100% !important;
+}
+
 .employee-list{
   display:grid !important;
   grid-template-columns:repeat(2,minmax(0,1fr)) !important;
@@ -2469,7 +2474,7 @@ footer{
   overflow-y:auto !important;
   overflow-x:hidden !important;
   align-content:start !important;
-  padding:2px !important;
+  padding-right:3px !important;
 }
 
 .employee-option{
