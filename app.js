@@ -2093,64 +2093,32 @@ async function savePlan(
 
 async function addPlannerActivity() {
 
-
-
   const activityIndex =
-    Number(
-      $("plannerActivity")?.value
-    );
-
+    Number($("plannerActivity")?.value);
 
   const activity =
-    state.activities[
-      activityIndex
-    ];
-
+    state.activities[activityIndex];
 
   if (!activity) {
-
-    alert(
-      "Selecciona una actividad."
-    );
-
+    alert("Selecciona una actividad.");
     return;
   }
 
-
-  if (
-    !state.selectedEmployees.length
-  ) {
-
-    alert(
-      "Selecciona al menos un empleado para formar el equipo."
-    );
-
+  if (!state.selectedEmployees.length) {
+    alert("Selecciona al menos un empleado para formar el equipo.");
     return;
   }
-
 
   const recommendation =
-    findYield(
-      activity
-    );
+    findYield(activity);
 
-
-  if (
-    !recommendation ||
-    !recommendation.yield
-  ) {
-
-    alert(
-      "Esta actividad no tiene rendimiento registrado."
-    );
-
+  if (!recommendation || !recommendation.yield) {
+    alert("Esta actividad no tiene rendimiento registrado.");
     return;
   }
-
 
   const enteredDays =
     getInputDurationDays();
-
 
   const automaticDays =
     estimateDuration(
@@ -2158,170 +2126,96 @@ async function addPlannerActivity() {
       recommendation
     );
 
-
   const durationDays =
     enteredDays > 0
       ? enteredDays
       : automaticDays;
 
-
-  if (
-    durationDays <= 0
-  ) {
-
-    alert(
-      "No se pudo calcular una duración válida."
-    );
-
+  if (durationDays <= 0) {
+    alert("No se pudo calcular una duración válida.");
     return;
   }
 
-
   const start =
     calculateStartDate();
-
 
   const end =
     addWorkDays(
       start,
       Math.max(
         1,
-        Math.ceil(
-          durationDays
-        )
+        Math.ceil(durationDays)
       ) - 1
     );
 
-  if (!validateProjectEnd(end)) {
+  if (
+    state.currentProject &&
+    !validateProjectEnd(end)
+  ) {
     alert(getProjectEndMessage(end));
     return;
   }
 
-  if(alertBusyEmployees(start,end,"")){
+  if (
+    state.currentProject &&
+    alertBusyEmployees(start, end, "")
+  ) {
     return;
   }
-
 
   const dependency =
     getDependency();
 
-  if (dependency && dependencyWouldCycle("", dependency.id)) {
-    // No hay ID propio todavía; una nueva actividad no puede cerrar un ciclo.
-  }
-
   const planned = {
-
-    id:
-      "",
-
-    sheetId:
-      "",
-
+    id: `LOCAL-${Date.now()}`,
+    sheetId: "",
     projectId:
-  state.currentProject?.id || "",
-
+      state.currentProject?.id || "",
     activityId:
       activity.id,
-
     phase:
       activity.phase,
-
     subarea:
       activity.subarea,
-
     name:
       activity.name,
-
     quantity:
       activity.quantity,
-
     unit:
       activity.unit,
-
     manager:
-      $("plannerManager")?.value ||
-      "",
-
+      $("plannerManager")?.value || "",
     start,
     end,
-
     duration:
       Math.max(
         1,
-        Math.ceil(
-          durationDays
-        )
+        Math.ceil(durationDays)
       ),
-
     dependencyId:
-      dependency?.id ||
-      null,
-
+      dependency?.id || null,
     dependencyName:
-      dependency?.name ||
-      "",
-
+      dependency?.name || "",
     employees:
       getSelectedEmployees(),
-
     yield:
       recommendation.yield,
-
     yieldUnit:
-      recommendation.yieldUnit ||
-      "",
-
+      recommendation.yieldUnit || "",
     shift:
-      $("plannerShift")?.value ||
-      "Diurno",
-
+      $("plannerShift")?.value || "Diurno",
     status:
       "Pendiente"
   };
 
+  state.plannedActivities.push(
+    planned
+  );
 
-state.plannedActivities.push(
-  planned
-);
-
-populateDependencies();
-
-renderAllPlannerViews();
-
-clearActivityForm(false);
-
-
-    populateDependencies();
-
-    renderAllPlannerViews();
-
-    clearActivityForm(
-      false
-    );
-
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "No se pudo guardar la actividad:\n\n" +
-      error.message
-    );
-
-  } finally {
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-      button.textContent =
-        "+ Agregar actividad";
-    }
-  }
+  populateDependencies();
+  renderAllPlannerViews();
+  clearActivityForm(false);
 }
-
 async function savePlannerPlanning(){
 
   if(!state.plannedActivities.length){
@@ -4218,31 +4112,9 @@ function renderProjectList() {
               );
 
 
-            if (project) {
-if(state._pendingSavePlanning){
-
-  const drafts =
-    state._pendingDrafts || [];
-
-  state._pendingSavePlanning =
-    false;
-
-  state._pendingDrafts = [];
-
-  state.plannedActivities =
-    drafts;
-
-  state.plannedActivities.forEach(
-    plan => {
-      plan.projectId =
-        project.id;
-    }
-  );
-
-  await savePlannerPlanning();
+if (project) {
+  enterProject(project);
 }
-              );
-            }
           }
         );
       }
@@ -4475,13 +4347,27 @@ async function createProject() {
     );
 
 
- if(pendingActivitySave){
+const drafts =
+  state._pendingDrafts || [];
 
-  pendingActivitySave=false;
+const shouldSave =
+  !!state._pendingSavePlanning;
 
-  await addPlannerActivityFinal();
+state._pendingSavePlanning = false;
+state._pendingDrafts = [];
+
+enterProject(project);
+
+if (shouldSave && drafts.length) {
+
+  state.plannedActivities =
+    drafts.map(plan => ({
+      ...plan,
+      projectId: project.id
+    }));
+
+  await savePlannerPlanning();
 }
-
   } catch (error) {
 
     alert(
@@ -5068,13 +4954,7 @@ if (saveButton) {
           true
         )
     );
-   $("savePlannerPlanning")
-  ?.addEventListener(
-    "click",
-    savePlannerPlanning
-  );
-
-
+ 
   document
     .querySelectorAll(
       ".view-btn"
