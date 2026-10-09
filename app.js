@@ -8727,3 +8727,202 @@ populateDependencies();
   setTimeout(enhanceDependencyButtons,50);
   setTimeout(enhanceDependencyButtons,1000);
 })();
+
+/* =========================================================
+   EXTENSIÓN: ACTIVIDADES ESCRITAS MANUALMENTE
+   Conserva el selector y la lógica existente del catálogo.
+========================================================= */
+
+(function () {
+  "use strict";
+
+  function addManualPlannerActivity() {
+    const name = document
+      .getElementById("plannerActivityManual")
+      ?.value.trim();
+
+    const durationInput = document.getElementById(
+      "plannerDuration"
+    );
+
+    const addButton = document.getElementById(
+      "addPlannerActivity"
+    );
+
+    if (!name) return false;
+
+    // Por ahora, el editor existente sigue gestionando
+    // las actividades que ya están en el catálogo.
+    if (window.OrbePlanner &&
+        window.OrbePlanner.editActivity &&
+        document.getElementById("cancelEditPlannerActivity")) {
+      alert(
+        "Para editar una actividad existente, " +
+        "usa el selector del catálogo. " +
+        "La edición de actividades manuales se integrará después."
+      );
+      return true;
+    }
+
+    const duration = Number(durationInput?.value);
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      alert(
+        "Esta actividad no tiene un rendimiento registrado. " +
+        "Introduce una duración mayor que cero."
+      );
+      durationInput?.focus();
+      return true;
+    }
+
+    if (!state.selectedEmployees.length) {
+      alert(
+        "Selecciona al menos un empleado para formar el equipo."
+      );
+      return true;
+    }
+
+    // Obtener las dependencias seleccionadas en el formulario.
+    const dependencyLinks = getDependencyLinks();
+
+    const days = Math.max(1, Math.ceil(duration));
+
+    const start = v5CalculateStartForDependencies(
+      days,
+      dependencyLinks
+    );
+
+    const end = addWorkDays(start, days - 1);
+
+    if (
+      state.currentProject &&
+      !validateProjectEnd(end)
+    ) {
+      alert(getProjectEndMessage(end));
+      return true;
+    }
+
+    if (
+      state.currentProject &&
+      alertBusyEmployees(start, end, "")
+    ) {
+      return true;
+    }
+
+    const planned = {
+      id: `LOCAL-MANUAL-${Date.now()}`,
+      sheetId: "",
+      projectId: state.currentProject?.id || "",
+
+      // No pertenece al catálogo de Google Sheets.
+      activityId: "",
+
+      phase: document.getElementById("plannerPhase")?.value || "",
+      subarea: "",
+      name: name,
+
+      quantity: 0,
+      unit: "",
+
+      manager:
+        document.getElementById("plannerManager")?.value || "",
+
+      start: start,
+      end: end,
+      duration: days,
+
+      dependencyId: dependencyLinks[0]?.id || null,
+      dependencyType: dependencyLinks[0]?.type || "FS",
+      dependencies: dependencyLinks,
+
+      dependencyName: "",
+
+      employees: getSelectedEmployees(),
+
+      // No inventamos un rendimiento.
+      yield: 0,
+      yieldUnit: "",
+
+      shift:
+        document.getElementById("plannerShift")?.value ||
+        "Diurno",
+
+      status: "Pendiente"
+    };
+
+    state.plannedActivities.push(planned);
+
+    v5SetDependencies(planned, dependencyLinks);
+
+    recalculateAllDates();
+
+    populateDependencies();
+    renderAllPlannerViews();
+
+    // Limpiar formulario sin alterar el catálogo.
+    clearActivityForm(true);
+
+    const manualInput = document.getElementById(
+      "plannerActivityManual"
+    );
+
+    if (manualInput) manualInput.value = "";
+
+    if (addButton) {
+      addButton.textContent = "+ Agregar actividad";
+    }
+
+    return true;
+  }
+
+  function bindManualActivityInput() {
+    const button = document.getElementById(
+      "addPlannerActivity"
+    );
+
+    if (!button || button.dataset.manualActivityBound) {
+      return;
+    }
+
+    button.dataset.manualActivityBound = "true";
+
+    // Se ejecuta antes de los eventos existentes del botón.
+    button.addEventListener(
+      "click",
+      function (event) {
+        const manualInput = document.getElementById(
+          "plannerActivityManual"
+        );
+
+        if (!manualInput?.value.trim()) {
+          // Si no hay texto manual, se conserva el
+          // comportamiento original del selector.
+          return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        try {
+          addManualPlannerActivity();
+        } catch (error) {
+          console.error(
+            "Error al agregar actividad manual:",
+            error
+          );
+
+          alert(
+            "No se pudo agregar la actividad: " +
+            error.message
+          );
+        }
+      },
+      true
+    );
+  }
+
+  bindManualActivityInput();
+
+  // Permite instalar la extensión si el botón se recrea.
+  window.addEventListener("load", bindManualActivityInput);
+})();
