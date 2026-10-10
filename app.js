@@ -8726,6 +8726,17 @@ state.plannedActivities =
 ensureDependencyPicker();
 
 populateDependencies();
+
+window.OrbePlannerManualHelpers = {
+  getDependencyLinks,
+  v5CalculateStartForDependencies,
+  v5SetDependencies,
+  recalculateAllDates,
+  populateDependencies,
+  clearActivityForm,
+  alertBusyEmployees
+};
+
 })();
 
 /* =========================================================
@@ -8835,10 +8846,23 @@ function selectPlannerCatalogActivity(index) {
   onActivitySelected();
 }
 
-function addManualPlannerActivityFromInput() {
-  const input = $("plannerActivityManual");
-  const durationInput = $("plannerDuration");
-  const addButton = $("addPlannerActivity");
+  const helpers = window.OrbePlannerManualHelpers;
+
+  if (!helpers) {
+    throw new Error(
+      "No se cargaron las funciones auxiliares del planificador."
+    );
+  }
+
+  const {
+    getDependencyLinks,
+    v5CalculateStartForDependencies,
+    v5SetDependencies,
+    recalculateAllDates,
+    populateDependencies,
+    clearActivityForm,
+    alertBusyEmployees
+  } = helpers;
 
   const name = input?.value.trim() || "";
 
