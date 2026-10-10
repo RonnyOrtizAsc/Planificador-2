@@ -131,14 +131,13 @@
   class="mobile-menu-backdrop"
 ></div>
 
-<div class="main">
+<div class="app-main-wrapper">
 
   <!-- ==================================================
        MAIN
   =================================================== -->
 
   <div class="main">
-
 
     <!-- ==================================================
          TOPBAR
@@ -330,18 +329,21 @@
 
 </label>
             
-<!-- ACTIVIDAD: -->
+<!-- ACTIVIDAD: ESCRIBIR O SELECCIONAR -->
 
-<div class="field field-wide activity-field">
+<label class="field field-wide activity-field">
 
   <span>Actividad</span>
 
-  <div class="activity-combobox" id="plannerActivityCombobox">
+  <div
+    class="activity-combobox"
+    id="plannerActivityCombobox"
+  >
 
     <input
       id="plannerActivityManual"
       type="text"
-      placeholder="Escribe una actividad o abre la lista con la flecha"
+      placeholder="Escribe una actividad..."
       autocomplete="off"
       aria-label="Actividad"
       aria-haspopup="listbox"
@@ -368,13 +370,16 @@
 
   </div>
 
-  <!-- Selector interno para conservar la lógica existente -->
-  <select id="plannerActivity" hidden aria-hidden="true" tabindex="-1">
+  <select
+    id="plannerActivity"
+    hidden
+    aria-hidden="true"
+    tabindex="-1"
+  >
     <option value="">Selecciona una actividad</option>
   </select>
 
-</div>
-
+</label>
             <!-- ENCARGADO -->
 
             <label class="field">
