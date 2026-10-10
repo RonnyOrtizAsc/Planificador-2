@@ -8988,10 +8988,6 @@ function addManualPlannerActivityFromInput() {
 
       if (select) select.value = "";
 
-      if ($("plannerPhase")) {
-        $("plannerPhase").value = "";
-      }
-
       if ($("plannerActivityInfo")) {
         $("plannerActivityInfo").textContent =
           input.value.trim()
