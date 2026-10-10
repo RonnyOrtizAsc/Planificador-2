@@ -2958,3 +2958,112 @@ body.mobile-menu-open{
     margin-left:0;
   }
 }
+/* =========================================================
+   ACTIVIDAD COMBINADA: TEXTO + FLECHA
+========================================================= */
+
+.activity-combobox {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.activity-combobox > input#plannerActivityManual {
+  width: 100%;
+  min-width: 0;
+  padding: 0 42px 0 11px;
+  border: 1px solid #dfe3df;
+  border-radius: 8px;
+  background: #fff;
+  color: #171a18;
+  height: 40px;
+  font-size: 11px;
+}
+
+.activity-combobox > input#plannerActivityManual:focus {
+  border-color: #b2c77b;
+  box-shadow: 0 0 0 3px rgba(200, 240, 74, .16);
+}
+
+.activity-dropdown-toggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 36px;
+  border: 0;
+  border-left: 1px solid #e5e8e4;
+  border-radius: 0 7px 7px 0;
+  background: #f7f8f6;
+  color: #6b736c;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.activity-dropdown-toggle:hover,
+.activity-dropdown-toggle[aria-expanded="true"] {
+  background: #edf2e4;
+  color: #252b21;
+}
+
+.activity-dropdown[hidden] {
+  display: none !important;
+}
+
+.activity-dropdown {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 290px;
+  overflow-y: auto;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid #dfe4dd;
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(18, 24, 20, .15);
+}
+
+.activity-dropdown-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+  color: #171a18;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activity-dropdown-option:hover,
+.activity-dropdown-option:focus-visible {
+  outline: none;
+  background: #f2f6e9;
+}
+
+.activity-dropdown-option[hidden] {
+  display: none !important;
+}
+
+.activity-option-main {
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.activity-option-meta {
+  color: #858d85;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.activity-field {
+  min-width: 0;
+}
