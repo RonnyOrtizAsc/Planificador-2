@@ -329,36 +329,51 @@
   <div id="plannerDependencyRules"></div>
 
 </label>
-
-
-
             
-<!-- ACTIVIDAD DEL CATÁLOGO O MANUAL -->
+<!-- ACTIVIDAD: -->
 
-<label class="field field-wide">
+<div class="field field-wide activity-field">
 
-  <span>
-    Actividad
-  </span>
+  <span>Actividad</span>
 
-  <select id="plannerActivity">
+  <div class="activity-combobox" id="plannerActivityCombobox">
 
-    <option value="">
-      Selecciona una actividad o escriba una
-    </option>
+    <input
+      id="plannerActivityManual"
+      type="text"
+      placeholder="Escribe una actividad o abre la lista con la flecha"
+      autocomplete="off"
+      aria-label="Actividad"
+      aria-haspopup="listbox"
+      aria-expanded="false"
+      aria-controls="plannerActivityDropdown"
+    >
 
+    <button
+      id="plannerActivityDropdownBtn"
+      class="activity-dropdown-toggle"
+      type="button"
+      aria-label="Mostrar actividades disponibles"
+      aria-controls="plannerActivityDropdown"
+      aria-expanded="false"
+    >⌄</button>
+
+    <div
+      id="plannerActivityDropdown"
+      class="activity-dropdown"
+      role="listbox"
+      aria-label="Actividades disponibles"
+      hidden
+    ></div>
+
+  </div>
+
+  <!-- Selector interno para conservar la lógica existente -->
+  <select id="plannerActivity" hidden aria-hidden="true" tabindex="-1">
+    <option value="">Selecciona una actividad</option>
   </select>
 
-  <input
-    id="plannerActivityManual"
-    type="text"
-    placeholder="O escribe una actividad nueva..."
-    autocomplete="off"
-  >
-
-</label>
-
-
+</div>
 
             <!-- ENCARGADO -->
 
