@@ -8846,6 +8846,8 @@ function selectPlannerCatalogActivity(index) {
   onActivitySelected();
 }
 
+ 
+function addManualPlannerActivityFromInput() {
   const helpers = window.OrbePlannerManualHelpers;
 
   if (!helpers) {
@@ -8854,16 +8856,9 @@ function selectPlannerCatalogActivity(index) {
     );
   }
 
-  const {
-    getDependencyLinks,
-    v5CalculateStartForDependencies,
-    v5SetDependencies,
-    recalculateAllDates,
-    populateDependencies,
-    clearActivityForm,
-    alertBusyEmployees
-  } = helpers;
-
+  const input = $("plannerActivityManual");
+  const durationInput = $("plannerDuration");
+  const addButton = $("addPlannerActivity");
   const name = input?.value.trim() || "";
 
   if (!name) {
@@ -8879,17 +8874,12 @@ function selectPlannerCatalogActivity(index) {
     return;
   }
 
-  // Convierte días, semanas u horas a duración en días.
   const enteredDuration = getInputDurationDays();
 
-  if (
-    !Number.isFinite(enteredDuration) ||
-    enteredDuration <= 0
-  ) {
+  if (!Number.isFinite(enteredDuration) || enteredDuration <= 0) {
     alert(
       "Esta actividad no tiene un rendimiento registrado. Introduce una duración mayor que cero."
     );
-
     durationInput?.focus();
     return;
   }
@@ -8899,60 +8889,45 @@ function selectPlannerCatalogActivity(index) {
     return;
   }
 
-  const dependencyLinks = getDependencyLinks();
-
+  const dependencyLinks = helpers.getDependencyLinks();
   const days = Math.max(1, Math.ceil(enteredDuration));
 
-  const start = v5CalculateStartForDependencies(
+  const start = helpers.v5CalculateStartForDependencies(
     days,
     dependencyLinks
   );
 
   const end = addWorkDays(start, days - 1);
 
-  if (
-    state.currentProject &&
-    !validateProjectEnd(end)
-  ) {
+  if (state.currentProject && !validateProjectEnd(end)) {
     alert(getProjectEndMessage(end));
     return;
   }
 
   if (
     state.currentProject &&
-    alertBusyEmployees(start, end, "")
+    helpers.alertBusyEmployees(start, end, "")
   ) {
     return;
   }
 
   const planned = {
-    id:
-      `LOCAL-MANUAL-${Date.now()}-` +
-      Math.random().toString(36).slice(2, 7),
-
+    id: `LOCAL-MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     sheetId: "",
     projectId: state.currentProject?.id || "",
-
-    // La actividad es manual: no tiene ID ni rendimiento de catálogo.
     activityId: "",
-
-    phase: $("plannerPhase")?.value || "",
+    phase: $("plannerPhase")?.value.trim() || "",
     subarea: "",
     name: name,
-
     quantity: 0,
     unit: "",
-
     manager: $("plannerManager")?.value || "",
-
     start: start,
     end: end,
     duration: days,
-
     dependencyId: dependencyLinks[0]?.id || null,
     dependencyType: dependencyLinks[0]?.type || "FS",
     dependencies: dependencyLinks,
-
     dependencyName: dependencyLinks.map(link => {
       const dependency = state.plannedActivities.find(
         item => String(item.id) === String(link.id)
@@ -8962,28 +8937,22 @@ function selectPlannerCatalogActivity(index) {
         ? `${dependency.name} (${link.type})`
         : `${link.id} (${link.type})`;
     }).join(", "),
-
     employees: getSelectedEmployees(),
-
     yield: 0,
     yieldUnit: "",
-
     shift: $("plannerShift")?.value || "Diurno",
-
     status: "Pendiente"
   };
 
-  // Agrega la actividad con el nombre escrito.
   state.plannedActivities.push(planned);
 
-  v5SetDependencies(planned, dependencyLinks);
+  helpers.v5SetDependencies(planned, dependencyLinks);
+  helpers.recalculateAllDates();
+  helpers.populateDependencies();
 
-  recalculateAllDates();
-
-  populateDependencies();
   renderAllPlannerViews();
 
-  clearActivityForm(true);
+  helpers.clearActivityForm(true);
 
   if (input) {
     input.value = "";
