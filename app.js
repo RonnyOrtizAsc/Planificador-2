@@ -882,73 +882,85 @@ function updateCounts() {
 ========================================================= */
 
 function populateActivities() {
+  const select = $("plannerActivity");
+  const dropdown = $("plannerActivityDropdown");
 
-  const select =
-    $("plannerActivity");
+  if (!select) return;
 
-  if (!select) {
-    return;
-  }
+  const previousValue = select.value;
 
   select.innerHTML =
-    `<option value="">
-      Selecciona una actividad…
-    </option>`;
+    '<option value="">Selecciona una actividad</option>';
 
+  if (dropdown) {
+    dropdown.innerHTML = "";
+  }
 
   let lastPhase = "";
-
   let group = null;
 
+  state.activities.forEach((activity, index) => {
+    const phase = activity.phase || "Sin fase";
 
-  state.activities.forEach(
-    (activity, index) => {
-
-      const phase =
-        activity.phase ||
-        "Sin fase";
-
-
-      if (
-        phase !== lastPhase
-      ) {
-
-        group =
-          document.createElement(
-            "optgroup"
-          );
-
-        group.label =
-          phase;
-
-        select.appendChild(
-          group
-        );
-
-        lastPhase =
-          phase;
-      }
-
-
-      const option =
-        document.createElement(
-          "option"
-        );
-
-      option.value =
-        index;
-
-      option.textContent =
-        `${activity.name} · ` +
-        `${formatCompact(
-          activity.quantity
-        )} ${activity.unit}`;
-
-      group.appendChild(
-        option
-      );
+    if (phase !== lastPhase) {
+      group = document.createElement("optgroup");
+      group.label = phase;
+      select.appendChild(group);
+      lastPhase = phase;
     }
-  );
+
+    // Conserva el selector interno existente.
+    const option = document.createElement("option");
+
+    option.value = String(index);
+
+    option.textContent =
+      `${activity.name} · ${formatCompact(activity.quantity)} ${activity.unit}`;
+
+    group.appendChild(option);
+
+    // Crea también la opción visible de la lista desplegable.
+    if (dropdown) {
+      const item = document.createElement("button");
+
+      item.type = "button";
+      item.className = "activity-dropdown-option";
+      item.setAttribute("role", "option");
+      item.dataset.activityIndex = String(index);
+
+      item.dataset.search = normalize([
+        activity.name,
+        phase,
+        activity.subarea,
+        activity.quantity,
+        activity.unit
+      ].join(" "));
+
+      item.innerHTML = `
+        <span class="activity-option-main">
+          ${escapeHTML(activity.name || "Sin nombre")}
+        </span>
+
+        <span class="activity-option-meta">
+          ${escapeHTML(phase)} ·
+          ${escapeHTML(formatCompact(activity.quantity))}
+          ${escapeHTML(activity.unit || "")}
+        </span>
+      `;
+
+      dropdown.appendChild(item);
+    }
+  });
+
+  // Mantiene la selección si se vuelve a cargar el catálogo.
+  if (
+    previousValue !== "" &&
+    state.activities[Number(previousValue)]
+  ) {
+    select.value = previousValue;
+  }
+
+  filterPlannerActivityOptions();
 }
 
 
@@ -1109,6 +1121,16 @@ function onActivitySelected() {
   const activity =
     state.activities[index];
 
+     const activityInput = $("plannerActivityManual");
+
+  if (select.value !== "" && activity && activityInput) {
+    activityInput.value = activity.name || "";
+    activityInput.dataset.activityMode = "catalog";
+
+    if (typeof closePlannerActivityDropdown === "function") {
+      closePlannerActivityDropdown();
+    }
+  }
 
   if (
     select.value === "" ||
@@ -7664,7 +7686,19 @@ function clearActivityForm(
     $("plannerActivity").value =
       "";
   }
+  if (clearActivity) {
+    const activityInput = $("plannerActivityManual");
 
+    if (activityInput) {
+      activityInput.value = "";
+      activityInput.dataset.activityMode = "";
+    }
+
+    if (typeof closePlannerActivityDropdown === "function") {
+      closePlannerActivityDropdown();
+    }
+  }
+   
   if (
     $("plannerPhase")
   ) {
@@ -8729,200 +8763,358 @@ populateDependencies();
 })();
 
 /* =========================================================
-   EXTENSIÓN: ACTIVIDADES ESCRITAS MANUALMENTE
-   Conserva el selector y la lógica existente del catálogo.
+   ACTIVIDAD COMBINADA: ESCRIBIR O SELECCIONAR
 ========================================================= */
 
-(function () {
-  "use strict";
+function filterPlannerActivityOptions(showAll = false) {
+  const input = $("plannerActivityManual");
+  const dropdown = $("plannerActivityDropdown");
 
-  function addManualPlannerActivity() {
-    const name = document
-      .getElementById("plannerActivityManual")
-      ?.value.trim();
+  if (!input || !dropdown) return;
 
-    const durationInput = document.getElementById(
-      "plannerDuration"
-    );
+  const query =
+    showAll || input.dataset.activityMode === "catalog"
+      ? ""
+      : normalize(input.value);
 
-    const addButton = document.getElementById(
-      "addPlannerActivity"
-    );
+  dropdown
+    .querySelectorAll(".activity-dropdown-option")
+    .forEach(option => {
+      option.hidden =
+        Boolean(query) &&
+        !option.dataset.search.includes(query);
+    });
+}
 
-    if (!name) return false;
+function closePlannerActivityDropdown() {
+  const dropdown = $("plannerActivityDropdown");
+  const input = $("plannerActivityManual");
+  const toggle = $("plannerActivityDropdownBtn");
 
-    // Por ahora, el editor existente sigue gestionando
-    // las actividades que ya están en el catálogo.
-    if (window.OrbePlanner &&
-        window.OrbePlanner.editActivity &&
-        document.getElementById("cancelEditPlannerActivity")) {
-      alert(
-        "Para editar una actividad existente, " +
-        "usa el selector del catálogo. " +
-        "La edición de actividades manuales se integrará después."
-      );
-      return true;
-    }
+  if (dropdown) dropdown.hidden = true;
 
-    const duration = Number(durationInput?.value);
-
-    if (!Number.isFinite(duration) || duration <= 0) {
-      alert(
-        "Esta actividad no tiene un rendimiento registrado. " +
-        "Introduce una duración mayor que cero."
-      );
-      durationInput?.focus();
-      return true;
-    }
-
-    if (!state.selectedEmployees.length) {
-      alert(
-        "Selecciona al menos un empleado para formar el equipo."
-      );
-      return true;
-    }
-
-    // Obtener las dependencias seleccionadas en el formulario.
-    const dependencyLinks = getDependencyLinks();
-
-    const days = Math.max(1, Math.ceil(duration));
-
-    const start = v5CalculateStartForDependencies(
-      days,
-      dependencyLinks
-    );
-
-    const end = addWorkDays(start, days - 1);
-
-    if (
-      state.currentProject &&
-      !validateProjectEnd(end)
-    ) {
-      alert(getProjectEndMessage(end));
-      return true;
-    }
-
-    if (
-      state.currentProject &&
-      alertBusyEmployees(start, end, "")
-    ) {
-      return true;
-    }
-
-    const planned = {
-      id: `LOCAL-MANUAL-${Date.now()}`,
-      sheetId: "",
-      projectId: state.currentProject?.id || "",
-
-      // No pertenece al catálogo de Google Sheets.
-      activityId: "",
-
-      phase: document.getElementById("plannerPhase")?.value || "",
-      subarea: "",
-      name: name,
-
-      quantity: 0,
-      unit: "",
-
-      manager:
-        document.getElementById("plannerManager")?.value || "",
-
-      start: start,
-      end: end,
-      duration: days,
-
-      dependencyId: dependencyLinks[0]?.id || null,
-      dependencyType: dependencyLinks[0]?.type || "FS",
-      dependencies: dependencyLinks,
-
-      dependencyName: "",
-
-      employees: getSelectedEmployees(),
-
-      // No inventamos un rendimiento.
-      yield: 0,
-      yieldUnit: "",
-
-      shift:
-        document.getElementById("plannerShift")?.value ||
-        "Diurno",
-
-      status: "Pendiente"
-    };
-
-    state.plannedActivities.push(planned);
-
-    v5SetDependencies(planned, dependencyLinks);
-
-    recalculateAllDates();
-
-    populateDependencies();
-    renderAllPlannerViews();
-
-    // Limpiar formulario sin alterar el catálogo.
-    clearActivityForm(true);
-
-    const manualInput = document.getElementById(
-      "plannerActivityManual"
-    );
-
-    if (manualInput) manualInput.value = "";
-
-    if (addButton) {
-      addButton.textContent = "+ Agregar actividad";
-    }
-
-    return true;
+  if (input) {
+    input.setAttribute("aria-expanded", "false");
   }
 
-  function bindManualActivityInput() {
-    const button = document.getElementById(
-      "addPlannerActivity"
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+function openPlannerActivityDropdown() {
+  const dropdown = $("plannerActivityDropdown");
+  const input = $("plannerActivityManual");
+  const toggle = $("plannerActivityDropdownBtn");
+
+  if (!dropdown || !input || !toggle) return;
+
+  // La flecha siempre permite ver el catálogo completo.
+  filterPlannerActivityOptions(true);
+
+  dropdown.hidden = false;
+
+  input.setAttribute("aria-expanded", "true");
+  toggle.setAttribute("aria-expanded", "true");
+}
+
+function selectPlannerCatalogActivity(index) {
+  const activity = state.activities[Number(index)];
+  const select = $("plannerActivity");
+  const input = $("plannerActivityManual");
+
+  if (!activity || !select || !input) return;
+
+  select.value = String(index);
+
+  input.value = activity.name || "";
+  input.dataset.activityMode = "catalog";
+
+  closePlannerActivityDropdown();
+
+  onActivitySelected();
+}
+
+function addManualPlannerActivityFromInput() {
+  const input = $("plannerActivityManual");
+  const durationInput = $("plannerDuration");
+  const addButton = $("addPlannerActivity");
+
+  const name = input?.value.trim() || "";
+
+  if (!name) {
+    alert("Escribe el nombre de la actividad.");
+    input?.focus();
+    return;
+  }
+
+  if (state.editingPlanId) {
+    alert(
+      "Termina o cancela la edición actual antes de agregar una actividad nueva."
+    );
+    return;
+  }
+
+  // Convierte días, semanas u horas a duración en días.
+  const enteredDuration = getInputDurationDays();
+
+  if (
+    !Number.isFinite(enteredDuration) ||
+    enteredDuration <= 0
+  ) {
+    alert(
+      "Esta actividad no tiene un rendimiento registrado. Introduce una duración mayor que cero."
     );
 
-    if (!button || button.dataset.manualActivityBound) {
+    durationInput?.focus();
+    return;
+  }
+
+  if (!state.selectedEmployees.length) {
+    alert("Selecciona al menos un empleado para formar el equipo.");
+    return;
+  }
+
+  const dependencyLinks = getDependencyLinks();
+
+  const days = Math.max(1, Math.ceil(enteredDuration));
+
+  const start = v5CalculateStartForDependencies(
+    days,
+    dependencyLinks
+  );
+
+  const end = addWorkDays(start, days - 1);
+
+  if (
+    state.currentProject &&
+    !validateProjectEnd(end)
+  ) {
+    alert(getProjectEndMessage(end));
+    return;
+  }
+
+  if (
+    state.currentProject &&
+    alertBusyEmployees(start, end, "")
+  ) {
+    return;
+  }
+
+  const planned = {
+    id:
+      `LOCAL-MANUAL-${Date.now()}-` +
+      Math.random().toString(36).slice(2, 7),
+
+    sheetId: "",
+    projectId: state.currentProject?.id || "",
+
+    // La actividad es manual: no tiene ID ni rendimiento de catálogo.
+    activityId: "",
+
+    phase: $("plannerPhase")?.value || "",
+    subarea: "",
+    name: name,
+
+    quantity: 0,
+    unit: "",
+
+    manager: $("plannerManager")?.value || "",
+
+    start: start,
+    end: end,
+    duration: days,
+
+    dependencyId: dependencyLinks[0]?.id || null,
+    dependencyType: dependencyLinks[0]?.type || "FS",
+    dependencies: dependencyLinks,
+
+    dependencyName: dependencyLinks.map(link => {
+      const dependency = state.plannedActivities.find(
+        item => String(item.id) === String(link.id)
+      );
+
+      return dependency
+        ? `${dependency.name} (${link.type})`
+        : `${link.id} (${link.type})`;
+    }).join(", "),
+
+    employees: getSelectedEmployees(),
+
+    yield: 0,
+    yieldUnit: "",
+
+    shift: $("plannerShift")?.value || "Diurno",
+
+    status: "Pendiente"
+  };
+
+  // Agrega la actividad con el nombre escrito.
+  state.plannedActivities.push(planned);
+
+  v5SetDependencies(planned, dependencyLinks);
+
+  recalculateAllDates();
+
+  populateDependencies();
+  renderAllPlannerViews();
+
+  clearActivityForm(true);
+
+  if (input) {
+    input.value = "";
+    input.dataset.activityMode = "";
+  }
+
+  closePlannerActivityDropdown();
+
+  if (addButton) {
+    addButton.textContent = "+ Agregar actividad";
+  }
+}
+
+(function installUnifiedActivityPicker() {
+  const input = $("plannerActivityManual");
+  const toggle = $("plannerActivityDropdownBtn");
+  const dropdown = $("plannerActivityDropdown");
+  const combo = $("plannerActivityCombobox");
+
+  // ESCRIBIR: deja de considerar seleccionada una actividad del catálogo.
+  if (input) {
+    input.addEventListener("input", () => {
+      input.dataset.activityMode = "manual";
+
+      const select = $("plannerActivity");
+
+      if (select) select.value = "";
+
+      if ($("plannerPhase")) {
+        $("plannerPhase").value = "";
+      }
+
+      if ($("plannerActivityInfo")) {
+        $("plannerActivityInfo").textContent =
+          input.value.trim()
+            ? "Actividad escrita manualmente · introduce su duración porque no tiene rendimiento de catálogo."
+            : "Escribe una actividad o selecciónala con la flecha.";
+      }
+
+      if ($("employeeRequirement")) {
+        $("employeeRequirement").textContent =
+          input.value.trim()
+            ? "Para una actividad manual, indica la duración y selecciona el equipo necesario."
+            : "Selecciona empleados para formar el equipo de trabajo.";
+      }
+
+      if (dropdown && !dropdown.hidden) {
+        filterPlannerActivityOptions();
+      }
+    });
+
+    input.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closePlannerActivityDropdown();
+      }
+
+      if (event.key === "ArrowDown" && dropdown?.hidden) {
+        event.preventDefault();
+        openPlannerActivityDropdown();
+      }
+    });
+  }
+
+  // FLECHA: abre o cierra el catálogo.
+  if (toggle) {
+    toggle.addEventListener("click", event => {
+      event.preventDefault();
+
+      if (dropdown?.hidden) {
+        openPlannerActivityDropdown();
+      } else {
+        closePlannerActivityDropdown();
+      }
+    });
+  }
+
+  // Elegir una actividad del catálogo.
+  if (dropdown) {
+    dropdown.addEventListener("click", event => {
+      const target =
+        event.target instanceof Element
+          ? event.target
+          : null;
+
+      const option = target?.closest("[data-activity-index]");
+
+      if (!option) return;
+
+      event.preventDefault();
+
+      selectPlannerCatalogActivity(
+        option.dataset.activityIndex
+      );
+    });
+  }
+
+  // Cierra la lista al hacer clic fuera del campo.
+  document.addEventListener("click", event => {
+    if (combo && !combo.contains(event.target)) {
+      closePlannerActivityDropdown();
+    }
+  });
+
+  // Intercepta el botón aunque otro código lo reemplace.
+  // Se ejecuta antes del evento del botón.
+  document.addEventListener("click", event => {
+    const target =
+      event.target instanceof Element
+        ? event.target
+        : null;
+
+    const addButton = target?.closest("#addPlannerActivity");
+
+    if (!addButton) return;
+
+    const activityInput = $("plannerActivityManual");
+    const catalogSelect = $("plannerActivity");
+
+    // Si se escribió un nombre nuevo, usa el flujo manual.
+    if (
+      activityInput?.value.trim() &&
+      activityInput.dataset.activityMode !== "catalog"
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      try {
+        addManualPlannerActivityFromInput();
+      } catch (error) {
+        console.error(
+          "Error al agregar actividad manual:",
+          error
+        );
+
+        alert(
+          "No se pudo agregar la actividad: " +
+          (error?.message || error)
+        );
+      }
+
       return;
     }
 
-    button.dataset.manualActivityBound = "true";
+    // Evita que una selección vacía se convierta en el índice cero.
+    if (!catalogSelect || catalogSelect.value === "") {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
 
-    // Se ejecuta antes de los eventos existentes del botón.
-    button.addEventListener(
-      "click",
-      function (event) {
-        const manualInput = document.getElementById(
-          "plannerActivityManual"
-        );
+      alert("Escribe una actividad o selecciónala con la flecha.");
 
-        if (!manualInput?.value.trim()) {
-          // Si no hay texto manual, se conserva el
-          // comportamiento original del selector.
-          return;
-        }
+      activityInput?.focus();
+    }
 
-        event.preventDefault();
-        event.stopImmediatePropagation();
-
-        try {
-          addManualPlannerActivity();
-        } catch (error) {
-          console.error(
-            "Error al agregar actividad manual:",
-            error
-          );
-
-          alert(
-            "No se pudo agregar la actividad: " +
-            error.message
-          );
-        }
-      },
-      true
-    );
-  }
-
-  bindManualActivityInput();
-
-  // Permite instalar la extensión si el botón se recrea.
-  window.addEventListener("load", bindManualActivityInput);
+    // Si se eligió del catálogo, continúa el flujo original.
+  }, true);
 })();
