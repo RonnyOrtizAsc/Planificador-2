@@ -4419,7 +4419,7 @@ function initProjectDatePickers() {
     if (input._flatpickr) return;
 
     window.flatpickr(input, {
-      locale: window.flatpickr.l10ns.es,
+      locale: window.flatpickr.l10ns?.es || "default",
       dateFormat: "Y-m-d",
       altInput: true,
       altFormat: "d/m/Y",
@@ -4696,9 +4696,9 @@ function updateCurrentProjectUI() {
         0
       ).getDate();
 
-      const matchingMonthEnd =
-        start.getDate() === startLastDay &&
-        end.getDate() === endLastDay;
+   const matchingMonthEnd =
+  end.getDate() === endLastDay &&
+  start.getDate() > endLastDay;
 
       const fullMonths =
         monthDifference -
