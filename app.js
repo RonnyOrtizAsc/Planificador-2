@@ -37,7 +37,8 @@ const state = {
 
   connected: false,
 
-  nextId: 1
+  nextId: 1,
+workingDays: [1, 2, 3, 4, 5, 6]
 };
 
 
@@ -183,8 +184,10 @@ function formatISODate(value) {
 function isWorkingDay(value) {
   const d = parseDate(value);
   if (!d) return false;
+
   const day = d.getDay();
-  return day !== 0 && day !== 6;
+
+  return state.workingDays.includes(day);
 }
 
 function nextWorkingDay(value) {
@@ -9107,3 +9110,134 @@ function addManualPlannerActivityFromInput() {
     // Si se eligió del catálogo, continúa el flujo original.
   }, true);
 })();
+/* =========================================================
+   CONFIGURACIÓN DEL CALENDARIO LABORAL
+========================================================= */
+
+function workingDaysStorageKey() {
+  const projectId = state.currentProject?.id || "sin-proyecto";
+
+  return `planificador-dias-laborables:${projectId}`;
+}
+
+function syncWorkingDaysDropdown() {
+  const dropdown = $("workingDaysDropdown");
+  const summary = $("workingDaysSummary");
+
+  if (!dropdown) return;
+
+  const days = [1, 2, 3, 4, 5, 6, 0];
+  const names = {
+    0: "Domingo",
+    1: "Lunes",
+    2: "Martes",
+    3: "Miércoles",
+    4: "Jueves",
+    5: "Viernes",
+    6: "Sábado"
+  };
+
+  dropdown
+    .querySelectorAll("[data-working-day]")
+    .forEach(input => {
+      input.checked = state.workingDays.includes(
+        Number(input.dataset.workingDay)
+      );
+    });
+
+  if (summary) {
+    if (days.every(day => state.workingDays.includes(day))) {
+      summary.textContent = "Todos los días";
+    } else if (
+      [1, 2, 3, 4, 5, 6].every(day =>
+        state.workingDays.includes(day)
+      ) &&
+      !state.workingDays.includes(0)
+    ) {
+      summary.textContent = "Lunes a sábado";
+    } else {
+      summary.textContent = days
+        .filter(day => state.workingDays.includes(day))
+        .map(day => names[day].slice(0, 3))
+        .join(", ");
+    }
+  }
+}
+
+function loadWorkingDaysForCurrentProject() {
+  const defaultDays = [1, 2, 3, 4, 5, 6];
+
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(workingDaysStorageKey()) || "null"
+    );
+
+    if (Array.isArray(saved)) {
+      const validDays = [...new Set(
+        saved
+          .map(Number)
+          .filter(day =>
+            Number.isInteger(day) && day >= 0 && day <= 6
+          )
+      )];
+
+      state.workingDays = validDays.length
+        ? validDays
+        : defaultDays;
+    } else {
+      state.workingDays = defaultDays;
+    }
+  } catch (error) {
+    state.workingDays = defaultDays;
+  }
+
+  syncWorkingDaysDropdown();
+}
+
+function initWorkingDaysDropdown() {
+  const dropdown = $("workingDaysDropdown");
+
+  if (!dropdown || dropdown.dataset.initialized) return;
+
+  dropdown.dataset.initialized = "true";
+
+  loadWorkingDaysForCurrentProject();
+
+  dropdown
+    .querySelectorAll("[data-working-day]")
+    .forEach(input => {
+      input.addEventListener("change", () => {
+        const selected = [...dropdown.querySelectorAll(
+          "[data-working-day]:checked"
+        )].map(input => Number(input.dataset.workingDay));
+
+        if (!selected.length) {
+          input.checked = true;
+
+          alert("Debes dejar al menos un día laborable seleccionado.");
+          return;
+        }
+
+        state.workingDays = selected;
+
+        try {
+          localStorage.setItem(
+            workingDaysStorageKey(),
+            JSON.stringify(selected)
+          );
+        } catch (error) {
+          console.warn("No se pudo guardar la configuración local.", error);
+        }
+
+        syncWorkingDaysDropdown();
+
+        if (state.plannedActivities.length) {
+          recalculateAllDates();
+          populateDependencies();
+          renderAllPlannerViews();
+        }
+      });
+    });
+}
+
+initWorkingDaysDropdown();
