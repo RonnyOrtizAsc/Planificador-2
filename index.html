@@ -17,6 +17,10 @@
   >
 
   <link rel="stylesheet" href="styles.css">
+  <link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+>
 </head>
 
 <body>
@@ -47,8 +51,52 @@
         <label>Nombre<input id="projectName" type="text" placeholder="Ej. Grupo Q · Santa Elena"></label>
         <label>Ubicación<input id="projectLocation" type="text" placeholder="Ej. Santa Elena, San Salvador"></label>
         <label>Tipo<select id="projectType"><option value="Construcción">Construcción</option><option value="Remodelación">Remodelación</option><option value="Obra civil">Obra civil</option><option value="Otro">Otro</option></select></label>
-        <label>Inicio<input id="projectStart" type="date" value="2026-10-16"></label>
-        <label>Fin<input id="projectEnd" type="date"></label>
+      <label>
+  Inicio
+  <input
+    id="projectStart"
+    type="text"
+    placeholder="Seleccionar fecha"
+    autocomplete="off"
+  >
+</label>
+
+<label>
+  Fin (o define un plazo)
+  <input
+    id="projectEnd"
+    type="text"
+    placeholder="Seleccionar fecha"
+    autocomplete="off"
+  >
+</label>
+
+<div class="project-duration-field">
+  <label for="projectDuration">
+    O calcula la fecha final por plazo
+  </label>
+
+  <div class="project-duration-row">
+    <input
+      id="projectDuration"
+      type="number"
+      min="1"
+      step="1"
+      inputmode="numeric"
+      placeholder="Ej. 4"
+    >
+
+    <select id="projectDurationUnit" aria-label="Unidad del plazo">
+      <option value="days">Días</option>
+      <option value="months" selected>Meses</option>
+      <option value="years">Años</option>
+    </select>
+  </div>
+
+  <small>
+    Al indicar el plazo, la fecha final se calculará a partir del inicio.
+  </small>
+</div>
       </div>
       <button type="button" id="createProjectBtn" class="project-submit">Crear y entrar al proyecto →</button>
     </div>
@@ -231,21 +279,11 @@
 
           </div>
 
-
-          <div class="hero-date">
-
-            <span>
-              PLAZO DEL PROYECTO
-            </span>
-
-            <strong>
-              4 <small>MESES</small>
-            </strong>
-
-            <em>
-              16 OCT 2026 → 16 FEB 2027
-            </em>
-
+        <div class="hero-date">
+  <span>PLAZO DEL PROYECTO</span>
+  <strong>— <small></small></strong>
+  <em>Selecciona o crea un proyecto</em>
+</div>
             <details class="working-days-dropdown" id="workingDaysDropdown">
   <summary>
     <span>Días laborables</span>
@@ -1569,7 +1607,8 @@
 
 </div>
 
-
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script src="app.js"></script>
 
 </body>
