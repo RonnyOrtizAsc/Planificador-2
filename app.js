@@ -4417,7 +4417,7 @@ function enterProject(
 
   state.currentProject =
     project;
-
+loadWorkingDaysForCurrentProject();
 
   CONFIG.projectStart =
     formatISODate(
