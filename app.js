@@ -13,7 +13,15 @@ const CONFIG = {
   sheetsUrl:
     "https://script.google.com/macros/s/AKfycbxjMSqsRzFsDyKbHjw6mOeq8GgTtvm5DSgd8PMPV5pEb-lF_SCdfhJnASn6IFZsHFjhDg/exec",
 
-  projectStart: "2026-10-16"
+  projectStart: (() => {
+  const today = new Date();
+
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0")
+  ].join("-");
+})()
 };
 
 const $ = id => document.getElementById(id);
@@ -3611,6 +3619,38 @@ function bindProjectGateEvents() {
   $("backProjectList")?.addEventListener("click", () => showProjectSection("home"));
   $("createProjectBtn")?.addEventListener("click", createProject);
   $("skipProjectBtn")?.addEventListener("click", skipProjectForNow);
+     initProjectDatePickers();
+
+  const startInput = $("projectStart");
+  const endInput = $("projectEnd");
+  const durationInput = $("projectDuration");
+  const unitInput = $("projectDurationUnit");
+
+  startInput?.addEventListener("change", () => {
+    if (durationInput?.value.trim()) {
+      recalculateProjectEndFromDuration();
+    }
+  });
+
+  endInput?.addEventListener("change", () => {
+    if (endInput.value) {
+      if (durationInput) {
+        durationInput.value = "";
+      }
+
+      endInput.dataset.projectEndSource = "manual";
+    }
+  });
+
+  durationInput?.addEventListener(
+    "input",
+    recalculateProjectEndFromDuration
+  );
+
+  unitInput?.addEventListener(
+    "change",
+    recalculateProjectEndFromDuration
+  );
 }
 
 function mountProjectGate() {
@@ -4255,7 +4295,139 @@ if (project) {
     );
 }
 
+function calculateProjectEndDateFromDuration(
+  startValue,
+  durationValue,
+  unit
+) {
+  const start = parseDate(startValue);
+  const duration = Number(durationValue);
 
+  if (
+    !start ||
+    !Number.isInteger(duration) ||
+    duration < 1
+  ) {
+    return "";
+  }
+
+  const end = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate()
+  );
+
+  if (unit === "days") {
+    // El día de inicio cuenta como el primer día.
+    end.setDate(end.getDate() + duration - 1);
+  } else {
+    const originalDay = end.getDate();
+    const monthsToAdd =
+      unit === "years" ? duration * 12 : duration;
+
+    end.setDate(1);
+    end.setMonth(end.getMonth() + monthsToAdd);
+
+    // Evita que, por ejemplo, el 31 de enero pase a marzo
+    // al sumar un mes: utiliza el último día de febrero.
+    const lastDayOfMonth = new Date(
+      end.getFullYear(),
+      end.getMonth() + 1,
+      0
+    ).getDate();
+
+    end.setDate(Math.min(originalDay, lastDayOfMonth));
+  }
+
+  return [
+    end.getFullYear(),
+    String(end.getMonth() + 1).padStart(2, "0"),
+    String(end.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+
+function setProjectEndInputValue(value) {
+  const endInput = $("projectEnd");
+
+  if (!endInput) return;
+
+  if (endInput._flatpickr) {
+    endInput._flatpickr.setDate(value || "", false, "Y-m-d");
+  } else {
+    endInput.value = value || "";
+  }
+}
+
+
+function recalculateProjectEndFromDuration() {
+  const startInput = $("projectStart");
+  const endInput = $("projectEnd");
+  const durationInput = $("projectDuration");
+  const unitInput = $("projectDurationUnit");
+
+  if (!startInput || !endInput || !durationInput || !unitInput) {
+    return;
+  }
+
+  const rawDuration = durationInput.value.trim();
+
+  if (!rawDuration) {
+    if (endInput.dataset.projectEndSource === "duration") {
+      setProjectEndInputValue("");
+      delete endInput.dataset.projectEndSource;
+    }
+
+    return;
+  }
+
+  const calculatedEnd = calculateProjectEndDateFromDuration(
+    startInput.value,
+    rawDuration,
+    unitInput.value
+  );
+
+  if (!calculatedEnd) {
+    if (endInput.dataset.projectEndSource === "duration") {
+      setProjectEndInputValue("");
+      delete endInput.dataset.projectEndSource;
+    }
+
+    return;
+  }
+
+  setProjectEndInputValue(calculatedEnd);
+  endInput.dataset.projectEndSource = "duration";
+}
+
+
+function initProjectDatePickers() {
+  const startInput = $("projectStart");
+  const endInput = $("projectEnd");
+
+  const inputs = [startInput, endInput].filter(Boolean);
+
+  if (typeof window.flatpickr !== "function") {
+    inputs.forEach(input => {
+      input.type = "date";
+    });
+
+    return;
+  }
+
+  inputs.forEach(input => {
+    if (input._flatpickr) return;
+
+    window.flatpickr(input, {
+      locale: window.flatpickr.l10ns.es,
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "d/m/Y",
+      disableMobile: true,
+      allowInput: false
+    });
+  });
+}
 async function createProject() {
 
   const name =
@@ -4278,17 +4450,14 @@ async function createProject() {
     "Construcción";
 
 
-  const start =
-    $("projectStart")
-      ?.value ||
-    CONFIG.projectStart;
+  const start = $("projectStart")?.value || "";
+  let end = $("projectEnd")?.value || "";
 
+  const durationRaw =
+    $("projectDuration")?.value.trim() || "";
 
-  const end =
-    $("projectEnd")
-      ?.value ||
-    "";
-
+  const durationUnit =
+    $("projectDurationUnit")?.value || "months";
 
   if (!name) {
 
@@ -4298,7 +4467,28 @@ async function createProject() {
 
     return;
   }
+  if (!start) {
+    alert("Selecciona la fecha de inicio.");
+    return;
+  }
 
+  if (durationRaw) {
+    end = calculateProjectEndDateFromDuration(
+      start,
+      durationRaw,
+      durationUnit
+    );
+
+    if (!end) {
+      alert("El plazo debe ser un número entero mayor que cero.");
+      return;
+    }
+  }
+
+  if (!end) {
+    alert("Selecciona la fecha de fin o indica el plazo del proyecto.");
+    return;
+  }
 
   if (
     end &&
@@ -4481,15 +4671,59 @@ function updateCurrentProjectUI() {
 
 
   const heroDate = document.querySelector(".hero-date");
+
   if (heroDate) {
     const start = parseDate(project.start);
     const end = parseDate(project.end);
-    const durationMonths = start && end
-      ? ((end.getFullYear()-start.getFullYear())*12 + (end.getMonth()-start.getMonth()) + (end.getDate() >= start.getDate() ? 0 : -1))
-      : 0;
+
+    let durationValue = "—";
+    let durationUnit = "";
+
+    if (start && end) {
+      const monthDifference =
+        (end.getFullYear() - start.getFullYear()) * 12 +
+        (end.getMonth() - start.getMonth());
+
+      const startLastDay = new Date(
+        start.getFullYear(),
+        start.getMonth() + 1,
+        0
+      ).getDate();
+
+      const endLastDay = new Date(
+        end.getFullYear(),
+        end.getMonth() + 1,
+        0
+      ).getDate();
+
+      const matchingMonthEnd =
+        start.getDate() === startLastDay &&
+        end.getDate() === endLastDay;
+
+      const fullMonths =
+        monthDifference -
+        (
+          end.getDate() < start.getDate() &&
+          !matchingMonthEnd
+            ? 1
+            : 0
+        );
+
+      if (fullMonths >= 12 && fullMonths % 12 === 0) {
+        durationValue = fullMonths / 12;
+        durationUnit = "AÑOS";
+      } else if (fullMonths > 0) {
+        durationValue = fullMonths;
+        durationUnit = "MESES";
+      } else {
+        durationValue = daysBetween(start, end);
+        durationUnit = "DÍAS";
+      }
+    }
+
     heroDate.innerHTML = `
       <span>PLAZO DEL PROYECTO</span>
-      <strong>${end && durationMonths > 0 ? durationMonths : (end ? daysBetween(start,end) : "—")} <small>${end && durationMonths > 0 ? "MESES" : (end ? "DÍAS" : "")}</small></strong>
+      <strong>${durationValue} <small>${durationUnit}</small></strong>
       <em>${formatDate(project.start)}${end ? " → " + formatDate(project.end) : ""}</em>
     `;
   }
