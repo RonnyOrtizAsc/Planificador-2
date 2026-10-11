@@ -3154,3 +3154,60 @@ body.mobile-menu-open{
   margin: 0;
   accent-color: var(--lime-dark);
 }
+/* Plazo del proyecto */
+.project-duration-field {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+}
+
+.project-duration-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 0.8fr);
+  gap: 10px;
+}
+
+.project-duration-row input,
+.project-duration-row select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.project-duration-field small {
+  color: #737875;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Calendario */
+.flatpickr-calendar {
+  z-index: 6001 !important;
+  border: 1px solid #e3e6e3 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18) !important;
+  font-family: "Manrope", sans-serif !important;
+  overflow: hidden;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: #9cc51f !important;
+  border-color: #9cc51f !important;
+  color: #10130b !important;
+}
+
+.flatpickr-day.today {
+  border-color: #9cc51f !important;
+}
+
+@media (max-width: 600px) {
+  .project-duration-field {
+    grid-column: 1 / -1;
+  }
+
+  .project-duration-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
