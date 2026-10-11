@@ -3067,3 +3067,90 @@ body.mobile-menu-open{
 .activity-field {
   min-width: 0;
 }
+
+/* CALENDARIO LABORAL DESPLEGABLE */
+
+.working-days-dropdown {
+  position: relative;
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.working-days-dropdown > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  font-size: 10px;
+}
+
+.working-days-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.working-days-dropdown > summary strong {
+  font-size: 10px;
+}
+
+.working-days-chevron {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.working-days-dropdown[open] .working-days-chevron {
+  transform: rotate(180deg);
+}
+
+.working-days-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1200;
+  width: 230px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(18, 24, 20, .14);
+}
+
+.working-days-menu p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.working-days-list {
+  display: grid;
+  gap: 3px;
+}
+
+.working-days-list label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 5px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.working-days-list label:hover {
+  background: var(--surface-soft);
+}
+
+.working-days-list input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--lime-dark);
+}
