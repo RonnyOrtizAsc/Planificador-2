@@ -276,27 +276,54 @@
   <strong>— <small></small></strong>
   <em>Selecciona o crea un proyecto</em>
 </div>
-            <details class="working-days-dropdown" id="workingDaysDropdown">
-  <summary>
-    <span>Días laborables</span>
-    <strong id="workingDaysSummary">Lunes a sábado</strong>
-    <span class="working-days-chevron">⌄</span>
-  </summary>
+           
+<div class="working-days-dropdown" id="workingDaysDropdown">
+  <strong class="calendar-settings-title">Calendario laboral</strong>
+  <p class="calendar-settings-description">
+    Lunes a sábado laborables por defecto. Configura domingos y feriados por fecha.
+  </p>
 
-  <div class="working-days-menu">
-    <p>Selecciona los días de trabajo</p>
+  <div class="calendar-exception-form">
+    <label>
+      Fecha
+      <input id="calendarExceptionDate" type="date">
+    </label>
 
-    <div class="working-days-list">
-      <label><span>Lunes</span><input type="checkbox" data-working-day="1" checked></label>
-      <label><span>Martes</span><input type="checkbox" data-working-day="2" checked></label>
-      <label><span>Miércoles</span><input type="checkbox" data-working-day="3" checked></label>
-      <label><span>Jueves</span><input type="checkbox" data-working-day="4" checked></label>
-      <label><span>Viernes</span><input type="checkbox" data-working-day="5" checked></label>
-      <label><span>Sábado</span><input type="checkbox" data-working-day="6" checked></label>
-      <label><span>Domingo</span><input type="checkbox" data-working-day="0"></label>
-    </div>
+    <label>
+      Tipo de jornada
+      <select id="calendarExceptionType">
+        <option value="work">Sí se trabaja</option>
+        <option value="off">No se trabaja</option>
+      </select>
+    </label>
+
+    <label>
+      Motivo (opcional)
+      <input
+        id="calendarExceptionLabel"
+        type="text"
+        placeholder="Ej. Feriado, trabajo extraordinario"
+        maxlength="100"
+      >
+    </label>
+
+    <button type="button" id="addCalendarException" class="dark-btn">
+      + Registrar fecha
+    </button>
   </div>
-</details>
+
+  <div class="calendar-exception-heading">
+    <strong>Excepciones registradas</strong>
+    <span id="calendarExceptionCount">0 fechas</span>
+  </div>
+
+  <div id="calendarExceptionsList" class="calendar-exceptions-list">
+    <p class="calendar-exceptions-empty">
+      Todavía no hay excepciones registradas.
+    </p>
+  </div>
+</div>
+
         </section>
 
 
