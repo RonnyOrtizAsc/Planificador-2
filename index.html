@@ -277,52 +277,64 @@
   <em>Selecciona o crea un proyecto</em>
 </div>
            
-<div class="working-days-dropdown" id="workingDaysDropdown">
-  <strong class="calendar-settings-title">Calendario laboral</strong>
-  <p class="calendar-settings-description">
-    Lunes a sábado laborables por defecto. Configura domingos y feriados por fecha.
-  </p>
+<details class="working-days-dropdown" id="workingDaysDropdown">
+  <summary>
+    <span>Calendario laboral</span>
+    <strong id="workingDaysSummary">Lunes a sábado</strong>
+    <span class="working-days-chevron">⌄</span>
+  </summary>
 
-  <div class="calendar-exception-form">
-    <label>
-      Fecha
-      <input id="calendarExceptionDate" type="date">
-    </label>
-
-    <label>
-      Tipo de jornada
-      <select id="calendarExceptionType">
-        <option value="work">Sí se trabaja</option>
-        <option value="off">No se trabaja</option>
-      </select>
-    </label>
-
-    <label>
-      Motivo (opcional)
-      <input
-        id="calendarExceptionLabel"
-        type="text"
-        placeholder="Ej. Feriado, trabajo extraordinario"
-        maxlength="100"
-      >
-    </label>
-
-    <button type="button" id="addCalendarException" class="dark-btn">
-      + Registrar fecha
-    </button>
-  </div>
-
-  <div class="calendar-exception-heading">
-    <strong>Excepciones registradas</strong>
-    <span id="calendarExceptionCount">0 fechas</span>
-  </div>
-
-  <div id="calendarExceptionsList" class="calendar-exceptions-list">
-    <p class="calendar-exceptions-empty">
-      Todavía no hay excepciones registradas.
+  <div class="calendar-exception-menu">
+    <p>
+      Los domingos y feriados se consultan cuando el cronograma
+      necesita calcular una fecha. Aquí puedes revisar o cambiar
+      tus decisiones.
     </p>
+
+    <div class="calendar-exception-form">
+      <label>
+        Fecha especial
+        <input id="calendarExceptionDate" type="date">
+      </label>
+
+      <label>
+        Decisión
+        <select id="calendarExceptionType">
+          <option value="work">Sí se trabaja</option>
+          <option value="off">No se trabaja</option>
+        </select>
+      </label>
+
+      <label>
+        Motivo (opcional)
+        <input
+          id="calendarExceptionLabel"
+          type="text"
+          placeholder="Ej. Asueto de la empresa"
+          maxlength="100"
+        >
+      </label>
+
+      <button
+        type="button"
+        id="addCalendarException"
+        class="dark-btn"
+      >Guardar fecha especial</button>
+    </div>
+
+    <div class="calendar-exception-heading">
+      <strong>Decisiones guardadas</strong>
+      <span id="calendarExceptionCount">0 fechas</span>
+    </div>
+
+    <div id="calendarExceptionsList" class="calendar-exceptions-list">
+      <p class="calendar-exceptions-empty">
+        Todavía no hay fechas especiales.
+      </p>
+    </div>
   </div>
-</div>
+</details>
+
 
         </section>
 
