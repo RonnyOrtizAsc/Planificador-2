@@ -188,22 +188,60 @@ function formatISODate(value) {
   ].join("-");
 }
 
+
 function isWorkingDay(value) {
   const d = parseDate(value);
   if (!d) return false;
 
   const dateKey = formatISODate(d);
 
-  // Una excepción para la fecha exacta tiene prioridad.
-  const exception = (state.calendarExceptions || [])
-    .find(item => item.date === dateKey);
+  const saved = (state.calendarExceptions || []).find(
+    item => item.date === dateKey
+  );
 
-  if (exception) {
-    return exception.working === true;
+  // Una decisión guardada para esta fecha tiene prioridad.
+  if (saved) return saved.working === true;
+
+  const holiday = getElSalvadorHolidayLabel(d);
+  const isSunday = d.getDay() === 0;
+
+  // Solo preguntar durante una acción de planificación,
+  // nunca mientras se dibuja el cronograma.
+  if (isSunday || holiday) {
+    if (state._askCalendarDates) {
+      const reason = holiday || "domingo";
+
+      const shouldWork = window.confirm(
+        `El cronograma necesita resolver esta fecha:\n\n` +
+        `${formatDate(d)} — ${reason}\n\n` +
+        `¿Se trabajará ese día?\n\n` +
+        `Aceptar = Sí, se trabaja.\n` +
+        `Cancelar = No, se considera no laborable.`
+      );
+
+      const previous = state.calendarExceptions || [];
+
+      state.calendarExceptions = [
+        ...previous.filter(item => item.date !== dateKey),
+        {
+          date: dateKey,
+          working: shouldWork,
+          label: reason
+        }
+      ];
+
+      saveCalendarExceptions();
+      renderCalendarExceptions();
+
+      return shouldWork;
+    }
+
+    // Si todavía no hay decisión, domingos y feriados
+    // se consideran no laborables por defecto.
+    return false;
   }
 
-  // Jornada habitual: lunes a sábado.
-  // Domingo: no laborable por defecto.
+  // Jornada habitual de lunes a sábado.
   return [1, 2, 3, 4, 5, 6].includes(d.getDay());
 }
 
@@ -7986,7 +8024,7 @@ setDependencyPickerLinks(
    AGREGAR / EDITAR ACTIVIDAD
 ========================================================= */
 
-async function addPlannerActivityFinal() {
+async function addPlannerActivityFinalCore() {
 
   const editing =
     !!ORBE.editId;
@@ -8395,6 +8433,18 @@ async function addPlannerActivityFinal() {
   );
 }
 
+
+async function addPlannerActivityFinal() {
+  state._askCalendarDates = true;
+
+  try {
+    return await addPlannerActivityFinalCore();
+  } finally {
+    state._askCalendarDates = false;
+    syncWorkingDaysDropdown();
+    renderCalendarExceptions();
+  }
+}
 
 /* =========================================================
    RUTA CRÍTICA — MÚLTIPLES DEPENDENCIAS
@@ -9322,7 +9372,7 @@ function addManualPlannerActivityFromInput() {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-
+state._askCalendarDates = true;
       try {
         addManualPlannerActivityFromInput();
       } catch (error) {
@@ -9336,7 +9386,11 @@ function addManualPlannerActivityFromInput() {
           (error?.message || error)
         );
       }
-
+finally {
+  state._askCalendarDates = false;
+  syncWorkingDaysDropdown();
+  renderCalendarExceptions();
+}
       return;
     }
 
@@ -9355,8 +9409,9 @@ function addManualPlannerActivityFromInput() {
   }, true);
 })();
 
+
 /* =========================================================
-   CALENDARIO LABORAL POR FECHA Y POR PROYECTO
+   CALENDARIO LABORAL POR PROYECTO Y FECHA
 ========================================================= */
 
 function workingDaysStorageKey() {
@@ -9364,8 +9419,86 @@ function workingDaysStorageKey() {
   return `planificador-excepciones-calendario:${projectId}`;
 }
 
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return new Date(year, month - 1, day);
+}
+
+function getElSalvadorHolidayLabel(value) {
+  const d = parseDate(value);
+  if (!d) return "";
+
+  const location = normalize(state.currentProject?.location || "");
+
+  // No aplicar automáticamente el calendario salvadoreño
+  // cuando la ubicación indique expresamente otro país.
+  const foreignProject = [
+    "guatemala",
+    "honduras",
+    "republica dominicana",
+    "santo domingo"
+  ].some(country => location.includes(country));
+
+  if (foreignProject) return "";
+
+  const fixedHolidays = {
+    "01-01": "Año Nuevo",
+    "05-01": "Día del Trabajo",
+    "05-10": "Día de la Madre",
+    "06-17": "Día del Padre",
+    "08-03": "Fiestas de agosto",
+    "08-05": "Fiestas de agosto",
+    "09-15": "Día de la Independencia",
+    "11-02": "Día de los Difuntos",
+    "12-25": "Navidad"
+  };
+
+  const key = formatISODate(d).slice(5);
+
+  if (fixedHolidays[key]) return fixedHolidays[key];
+
+  const easter = getEasterSunday(d.getFullYear());
+  const holyWeek = [
+    [-3, "Jueves Santo"],
+    [-2, "Viernes Santo"],
+    [-1, "Sábado Santo"]
+  ];
+
+  for (const [offset, label] of holyWeek) {
+    if (formatISODate(addDays(easter, offset)) === formatISODate(d)) {
+      return label;
+    }
+  }
+
+  return "";
+}
+
+function syncWorkingDaysDropdown() {
+  const summary = $("workingDaysSummary");
+  if (!summary) return;
+
+  const count = (state.calendarExceptions || []).length;
+
+  summary.textContent = count
+    ? `${count} ${count === 1 ? "excepción" : "excepciones"}`
+    : "Lunes a sábado";
+}
+
 function loadWorkingDaysForCurrentProject() {
-  // La jornada semanal queda fija: lunes a sábado.
   state.workingDays = [1, 2, 3, 4, 5, 6];
   state.calendarExceptions = [];
 
@@ -9385,6 +9518,7 @@ function loadWorkingDaysForCurrentProject() {
     console.warn("No se pudo cargar el calendario laboral.", error);
   }
 
+  syncWorkingDaysDropdown();
   renderCalendarExceptions();
 }
 
@@ -9394,10 +9528,11 @@ function saveCalendarExceptions() {
       workingDaysStorageKey(),
       JSON.stringify(state.calendarExceptions || [])
     );
+
     return true;
   } catch (error) {
     console.error("No se pudo guardar el calendario laboral.", error);
-    alert("No se pudo guardar el calendario. Revisa el almacenamiento del navegador.");
+    alert("No se pudieron guardar las fechas especiales.");
     return false;
   }
 }
@@ -9408,44 +9543,50 @@ function renderCalendarExceptions() {
 
   if (!list) return;
 
-  const exceptions = [...(state.calendarExceptions || [])]
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const exceptions = [...(state.calendarExceptions || [])].sort(
+    (a, b) => a.date.localeCompare(b.date)
+  );
 
   if (count) {
     count.textContent =
       `${exceptions.length} ${exceptions.length === 1 ? "fecha" : "fechas"}`;
   }
 
+  syncWorkingDaysDropdown();
+
   if (!exceptions.length) {
     list.innerHTML = `
       <p class="calendar-exceptions-empty">
-        Todavía no hay excepciones registradas.
+        Todavía no hay fechas especiales.
       </p>
     `;
     return;
   }
 
   list.innerHTML = exceptions.map(item => {
-    const date = parseDate(item.date);
-    const dayName = date
-      ? date.toLocaleDateString("es-SV", { weekday: "long" })
+    const d = parseDate(item.date);
+    const dayName = d
+      ? d.toLocaleDateString("es-SV", { weekday: "long" })
       : "";
-
-    const status = item.working
-      ? "Se trabaja"
-      : "No se trabaja";
-
-    const label = item.label || (
-      item.working ? "Jornada extraordinaria" : "Día no laborable"
-    );
 
     return `
       <div class="calendar-exception-item">
         <div class="calendar-exception-info">
           <strong>${escapeHTML(formatDate(item.date))}</strong>
           <span>${escapeHTML(dayName)}</span>
-          <small>${escapeHTML(label)} · ${status}</small>
+          <small>${escapeHTML(item.label || "Fecha especial")}</small>
         </div>
+
+        <select data-calendar-working="${escapeHTML(item.date)}"
+          aria-label="Decisión para ${escapeHTML(formatDate(item.date))}">
+          <option value="true" ${item.working ? "selected" : ""}>
+            Se trabaja
+          </option>
+          <option value="false" ${!item.working ? "selected" : ""}>
+            No se trabaja
+          </option>
+        </select>
+
         <button
           type="button"
           class="outline-btn"
@@ -9490,9 +9631,9 @@ function initWorkingDaysDropdown() {
       return;
     }
 
+    const selectedDate = parseDate(date);
     const projectStart = parseDate(state.currentProject.start);
     const projectEnd = parseDate(state.currentProject.end);
-    const selectedDate = parseDate(date);
 
     if (
       (projectStart && selectedDate < projectStart) ||
@@ -9504,13 +9645,16 @@ function initWorkingDaysDropdown() {
 
     const previous = state.calendarExceptions || [];
 
-    // Si la fecha ya existe, actualizarla en lugar de duplicarla.
     state.calendarExceptions = [
       ...previous.filter(item => item.date !== date),
       {
         date,
         working: type === "work",
-        label
+        label: label || (
+          type === "work"
+            ? "Jornada extraordinaria"
+            : "Día no laborable"
+        )
       }
     ];
 
@@ -9525,6 +9669,30 @@ function initWorkingDaysDropdown() {
 
     $("calendarExceptionDate").value = "";
     $("calendarExceptionLabel").value = "";
+  });
+
+  list?.addEventListener("change", event => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (!target.dataset.calendarWorking) return;
+
+    const date = target.dataset.calendarWorking;
+    const previous = state.calendarExceptions || [];
+    const item = previous.find(entry => entry.date === date);
+
+    if (!item) return;
+
+    item.working = target.value === "true";
+
+    if (!saveCalendarExceptions()) {
+      item.working = !item.working;
+      renderCalendarExceptions();
+      return;
+    }
+
+    renderCalendarExceptions();
+    refreshCalendarPlanning();
   });
 
   list?.addEventListener("click", event => {
