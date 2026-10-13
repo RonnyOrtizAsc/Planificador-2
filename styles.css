@@ -3211,3 +3211,125 @@ body.mobile-menu-open{
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* CALENDARIO LABORAL: EXCEPCIONES POR FECHA */
+
+.calendar-settings-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.calendar-settings-description {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.calendar-exception-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(150px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.calendar-exception-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.calendar-exception-form input,
+.calendar-exception-form select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+}
+
+.calendar-exception-form label:nth-child(3),
+.calendar-exception-form button {
+  grid-column: 1 / -1;
+}
+
+.calendar-exception-form button {
+  min-height: 38px;
+}
+
+.calendar-exception-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+}
+
+.calendar-exception-heading span {
+  color: var(--muted);
+}
+
+.calendar-exceptions-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.calendar-exceptions-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.calendar-exception-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.calendar-exception-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.calendar-exception-info strong {
+  font-size: 11px;
+}
+
+.calendar-exception-info span,
+.calendar-exception-info small {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .calendar-exception-form {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-exception-form label:nth-child(3),
+  .calendar-exception-form button {
+    grid-column: auto;
+  }
+}
