@@ -188,15 +188,25 @@ function formatISODate(value) {
   ].join("-");
 }
 
-
 function isWorkingDay(value) {
   const d = parseDate(value);
   if (!d) return false;
 
-  const day = d.getDay();
+  const dateKey = formatISODate(d);
 
-  return state.workingDays.includes(day);
+  // Una excepción para la fecha exacta tiene prioridad.
+  const exception = (state.calendarExceptions || [])
+    .find(item => item.date === dateKey);
+
+  if (exception) {
+    return exception.working === true;
+  }
+
+  // Jornada habitual: lunes a sábado.
+  // Domingo: no laborable por defecto.
+  return [1, 2, 3, 4, 5, 6].includes(d.getDay());
 }
+
 
 function nextWorkingDay(value) {
   let d = parseDate(value);
@@ -9344,134 +9354,202 @@ function addManualPlannerActivityFromInput() {
     // Si se eligió del catálogo, continúa el flujo original.
   }, true);
 })();
+
 /* =========================================================
-   CONFIGURACIÓN DEL CALENDARIO LABORAL
+   CALENDARIO LABORAL POR FECHA Y POR PROYECTO
 ========================================================= */
 
 function workingDaysStorageKey() {
   const projectId = state.currentProject?.id || "sin-proyecto";
-
-  return `planificador-dias-laborables:${projectId}`;
-}
-
-function syncWorkingDaysDropdown() {
-  const dropdown = $("workingDaysDropdown");
-  const summary = $("workingDaysSummary");
-
-  if (!dropdown) return;
-
-  const days = [1, 2, 3, 4, 5, 6, 0];
-  const names = {
-    0: "Domingo",
-    1: "Lunes",
-    2: "Martes",
-    3: "Miércoles",
-    4: "Jueves",
-    5: "Viernes",
-    6: "Sábado"
-  };
-
-  dropdown
-    .querySelectorAll("[data-working-day]")
-    .forEach(input => {
-      input.checked = state.workingDays.includes(
-        Number(input.dataset.workingDay)
-      );
-    });
-
-  if (summary) {
-    if (days.every(day => state.workingDays.includes(day))) {
-      summary.textContent = "Todos los días";
-    } else if (
-      [1, 2, 3, 4, 5, 6].every(day =>
-        state.workingDays.includes(day)
-      ) &&
-      !state.workingDays.includes(0)
-    ) {
-      summary.textContent = "Lunes a sábado";
-    } else {
-      summary.textContent = days
-        .filter(day => state.workingDays.includes(day))
-        .map(day => names[day].slice(0, 3))
-        .join(", ");
-    }
-  }
+  return `planificador-excepciones-calendario:${projectId}`;
 }
 
 function loadWorkingDaysForCurrentProject() {
-  const defaultDays = [1, 2, 3, 4, 5, 6];
+  // La jornada semanal queda fija: lunes a sábado.
+  state.workingDays = [1, 2, 3, 4, 5, 6];
+  state.calendarExceptions = [];
 
   try {
     const saved = JSON.parse(
-      localStorage.getItem(workingDaysStorageKey()) || "null"
+      localStorage.getItem(workingDaysStorageKey()) || "[]"
     );
 
     if (Array.isArray(saved)) {
-      const validDays = [...new Set(
-        saved
-          .map(Number)
-          .filter(day =>
-            Number.isInteger(day) && day >= 0 && day <= 6
-          )
-      )];
-
-      state.workingDays = validDays.length
-        ? validDays
-        : defaultDays;
-    } else {
-      state.workingDays = defaultDays;
+      state.calendarExceptions = saved.filter(item =>
+        item &&
+        /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
+        typeof item.working === "boolean"
+      );
     }
   } catch (error) {
-    state.workingDays = defaultDays;
+    console.warn("No se pudo cargar el calendario laboral.", error);
   }
 
-  syncWorkingDaysDropdown();
+  renderCalendarExceptions();
+}
+
+function saveCalendarExceptions() {
+  try {
+    localStorage.setItem(
+      workingDaysStorageKey(),
+      JSON.stringify(state.calendarExceptions || [])
+    );
+    return true;
+  } catch (error) {
+    console.error("No se pudo guardar el calendario laboral.", error);
+    alert("No se pudo guardar el calendario. Revisa el almacenamiento del navegador.");
+    return false;
+  }
+}
+
+function renderCalendarExceptions() {
+  const list = $("calendarExceptionsList");
+  const count = $("calendarExceptionCount");
+
+  if (!list) return;
+
+  const exceptions = [...(state.calendarExceptions || [])]
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (count) {
+    count.textContent =
+      `${exceptions.length} ${exceptions.length === 1 ? "fecha" : "fechas"}`;
+  }
+
+  if (!exceptions.length) {
+    list.innerHTML = `
+      <p class="calendar-exceptions-empty">
+        Todavía no hay excepciones registradas.
+      </p>
+    `;
+    return;
+  }
+
+  list.innerHTML = exceptions.map(item => {
+    const date = parseDate(item.date);
+    const dayName = date
+      ? date.toLocaleDateString("es-SV", { weekday: "long" })
+      : "";
+
+    const status = item.working
+      ? "Se trabaja"
+      : "No se trabaja";
+
+    const label = item.label || (
+      item.working ? "Jornada extraordinaria" : "Día no laborable"
+    );
+
+    return `
+      <div class="calendar-exception-item">
+        <div class="calendar-exception-info">
+          <strong>${escapeHTML(formatDate(item.date))}</strong>
+          <span>${escapeHTML(dayName)}</span>
+          <small>${escapeHTML(label)} · ${status}</small>
+        </div>
+        <button
+          type="button"
+          class="outline-btn"
+          data-calendar-remove="${escapeHTML(item.date)}"
+        >Eliminar</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function refreshCalendarPlanning() {
+  if (!state.plannedActivities?.length) return;
+
+  recalculateAllDates();
+  populateDependencies();
+  renderAllPlannerViews();
 }
 
 function initWorkingDaysDropdown() {
-  const dropdown = $("workingDaysDropdown");
+  const container = $("workingDaysDropdown");
+  const addButton = $("addCalendarException");
+  const list = $("calendarExceptionsList");
 
-  if (!dropdown || dropdown.dataset.initialized) return;
+  if (!container || container.dataset.initialized) return;
 
-  dropdown.dataset.initialized = "true";
+  container.dataset.initialized = "true";
 
   loadWorkingDaysForCurrentProject();
 
-  dropdown
-    .querySelectorAll("[data-working-day]")
-    .forEach(input => {
-      input.addEventListener("change", () => {
-        const selected = [...dropdown.querySelectorAll(
-          "[data-working-day]:checked"
-        )].map(input => Number(input.dataset.workingDay));
+  addButton?.addEventListener("click", () => {
+    if (!state.currentProject?.id) {
+      alert("Primero selecciona o crea un proyecto.");
+      return;
+    }
 
-        if (!selected.length) {
-          input.checked = true;
+    const date = $("calendarExceptionDate")?.value || "";
+    const type = $("calendarExceptionType")?.value || "off";
+    const label = $("calendarExceptionLabel")?.value.trim() || "";
 
-          alert("Debes dejar al menos un día laborable seleccionado.");
-          return;
-        }
+    if (!date || !parseDate(date) || formatISODate(date) !== date) {
+      alert("Selecciona una fecha válida.");
+      return;
+    }
 
-        state.workingDays = selected;
+    const projectStart = parseDate(state.currentProject.start);
+    const projectEnd = parseDate(state.currentProject.end);
+    const selectedDate = parseDate(date);
 
-        try {
-          localStorage.setItem(
-            workingDaysStorageKey(),
-            JSON.stringify(selected)
-          );
-        } catch (error) {
-          console.warn("No se pudo guardar la configuración local.", error);
-        }
+    if (
+      (projectStart && selectedDate < projectStart) ||
+      (projectEnd && selectedDate > projectEnd)
+    ) {
+      alert("La fecha debe estar dentro del plazo del proyecto.");
+      return;
+    }
 
-        syncWorkingDaysDropdown();
+    const previous = state.calendarExceptions || [];
 
-        if (state.plannedActivities.length) {
-          recalculateAllDates();
-          populateDependencies();
-          renderAllPlannerViews();
-        }
-      });
-    });
+    // Si la fecha ya existe, actualizarla en lugar de duplicarla.
+    state.calendarExceptions = [
+      ...previous.filter(item => item.date !== date),
+      {
+        date,
+        working: type === "work",
+        label
+      }
+    ];
+
+    if (!saveCalendarExceptions()) {
+      state.calendarExceptions = previous;
+      renderCalendarExceptions();
+      return;
+    }
+
+    renderCalendarExceptions();
+    refreshCalendarPlanning();
+
+    $("calendarExceptionDate").value = "";
+    $("calendarExceptionLabel").value = "";
+  });
+
+  list?.addEventListener("click", event => {
+    const target = event.target instanceof Element
+      ? event.target.closest("[data-calendar-remove]")
+      : null;
+
+    if (!target) return;
+
+    const date = target.dataset.calendarRemove;
+    const previous = state.calendarExceptions || [];
+
+    state.calendarExceptions = previous.filter(
+      item => item.date !== date
+    );
+
+    if (!saveCalendarExceptions()) {
+      state.calendarExceptions = previous;
+      renderCalendarExceptions();
+      return;
+    }
+
+    renderCalendarExceptions();
+    refreshCalendarPlanning();
+  });
 }
 
 initWorkingDaysDropdown();
