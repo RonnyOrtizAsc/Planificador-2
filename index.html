@@ -277,63 +277,7 @@
   <em>Selecciona o crea un proyecto</em>
 </div>
            
-<details class="working-days-dropdown" id="workingDaysDropdown">
-  <summary>
-    <span>Calendario laboral</span>
-    <strong id="workingDaysSummary">Lunes a sábado</strong>
-    <span class="working-days-chevron">⌄</span>
-  </summary>
 
-  <div class="calendar-exception-menu">
-    <p>
-      Los domingos y feriados se consultan cuando el cronograma
-      necesita calcular una fecha. Aquí puedes revisar o cambiar
-      tus decisiones.
-    </p>
-
-    <div class="calendar-exception-form">
-      <label>
-        Fecha especial
-        <input id="calendarExceptionDate" type="date">
-      </label>
-
-      <label>
-        Decisión
-        <select id="calendarExceptionType">
-          <option value="work">Sí se trabaja</option>
-          <option value="off">No se trabaja</option>
-        </select>
-      </label>
-
-      <label>
-        Motivo (opcional)
-        <input
-          id="calendarExceptionLabel"
-          type="text"
-          placeholder="Ej. Asueto de la empresa"
-          maxlength="100"
-        >
-      </label>
-
-      <button
-        type="button"
-        id="addCalendarException"
-        class="dark-btn"
-      >Guardar fecha especial</button>
-    </div>
-
-    <div class="calendar-exception-heading">
-      <strong>Decisiones guardadas</strong>
-      <span id="calendarExceptionCount">0 fechas</span>
-    </div>
-
-    <div id="calendarExceptionsList" class="calendar-exceptions-list">
-      <p class="calendar-exceptions-empty">
-        Todavía no hay fechas especiales.
-      </p>
-    </div>
-  </div>
-</details>
 
 
         </section>
@@ -578,7 +522,20 @@
 
           </div>
 
-
+          <!-- CALENDARIO SEMANAL DE ESTA ACTIVIDAD -->
+          <section class="activity-weekly-calendar" aria-labelledby="plannerWeeklyScheduleTitle">
+            <div class="activity-weekly-calendar-head">
+              <div>
+                <h3 id="plannerWeeklyScheduleTitle">Días de trabajo de esta actividad</h3>
+                <p>De lunes a sábado se trabaja normalmente. Activa el domingo solo en las semanas donde el equipo trabajará horas extra.</p>
+              </div>
+              <span class="activity-weekly-calendar-tag">L–S por defecto</span>
+            </div>
+            <div id="plannerWeeklyScheduleWeeks" class="activity-weekly-weeks" aria-live="polite">
+              <p class="activity-weekly-empty">Selecciona una actividad e introduce su duración para ver las semanas que cubrirá.</p>
+            </div>
+            <div id="plannerWeeklyScheduleSummary" class="activity-weekly-summary"></div>
+          </section>
 
           <!-- ACCIONES -->
 
