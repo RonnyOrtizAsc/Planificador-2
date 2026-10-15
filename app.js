@@ -191,58 +191,8 @@ function formatISODate(value) {
 
 function isWorkingDay(value) {
   const d = parseDate(value);
-  if (!d) return false;
-
-  const dateKey = formatISODate(d);
-
-  const saved = (state.calendarExceptions || []).find(
-    item => item.date === dateKey
-  );
-
-  // Una decisión guardada para esta fecha tiene prioridad.
-  if (saved) return saved.working === true;
-
-  const holiday = getElSalvadorHolidayLabel(d);
-  const isSunday = d.getDay() === 0;
-
-  // Solo preguntar durante una acción de planificación,
-  // nunca mientras se dibuja el cronograma.
-  if (isSunday || holiday) {
-    if (state._askCalendarDates) {
-      const reason = holiday || "domingo";
-
-      const shouldWork = window.confirm(
-        `El cronograma necesita resolver esta fecha:\n\n` +
-        `${formatDate(d)} — ${reason}\n\n` +
-        `¿Se trabajará ese día?\n\n` +
-        `Aceptar = Sí, se trabaja.\n` +
-        `Cancelar = No, se considera no laborable.`
-      );
-
-      const previous = state.calendarExceptions || [];
-
-      state.calendarExceptions = [
-        ...previous.filter(item => item.date !== dateKey),
-        {
-          date: dateKey,
-          working: shouldWork,
-          label: reason
-        }
-      ];
-
-      saveCalendarExceptions();
-      renderCalendarExceptions();
-
-      return shouldWork;
-    }
-
-    // Si todavía no hay decisión, domingos y feriados
-    // se consideran no laborables por defecto.
-    return false;
-  }
-
-  // Jornada habitual de lunes a sábado.
-  return [1, 2, 3, 4, 5, 6].includes(d.getDay());
+  // Regla general: lunes a sábado. Cada actividad decide sus domingos.
+  return Boolean(d) && d.getDay() !== 0;
 }
 
 
@@ -718,6 +668,7 @@ function normalizePlan(raw) {
     yield: number(raw.RENDIMIENTO ?? raw.yield),
     yieldUnit: raw.UNIDAD_RENDIMIENTO ?? raw.yieldUnit ?? "",
     duration: number(raw.DURACION ?? raw.duration, 1),
+    workSundays: normalizeWorkSundays(raw.DOMINGOS_TRABAJO ?? raw.workSundays ?? []),
     start: parseDate(raw.INICIO ?? raw.start),
     end: parseDate(raw.FIN ?? raw.end),
     shift: raw.TURNO ?? raw.shift ?? "Diurno",
@@ -1493,7 +1444,7 @@ function getInputDurationDays() {
     unit === "semanas"
   ) {
 
-    return raw * 5;
+    return raw * 6;
   }
 
 
@@ -1713,6 +1664,10 @@ function clearActivityForm(
   renderActivityInfo();
 
   calculatePlannerRequirement();
+  state.formWorkSundays = [];
+  if (typeof renderActivityWeeklySchedule === "function") {
+    renderActivityWeeklySchedule();
+  }
 }
 
 
@@ -1976,26 +1931,21 @@ function dependencyWouldCycle(activityId, dependencyId) {
 }
 
 function calculateStartDate() {
+  const duration = Math.max(1, Math.ceil(getInputDurationDays() || 1));
+  const schedule = { workSundays: getSelectedActivityWorkSundays() };
+  const helper = window.OrbePlannerManualHelpers;
 
-  const dependency =
-    getDependency();
-
-
-  if (
-    dependency &&
-    dependency.end
-  ) {
-
-    return addWorkDays(
-      dependency.end,
-      1
+  if (helper?.v5CalculateStartForDependencies) {
+    return helper.v5CalculateStartForDependencies(
+      duration,
+      helper.getDependencyLinks(),
+      schedule
     );
   }
 
-
-  return nextWorkingDay(
-    state.currentProject?.start ||
-    CONFIG.projectStart
+  return nextWorkingDayForActivity(
+    state.currentProject?.start || CONFIG.projectStart,
+    schedule
   );
 }
 
@@ -2016,16 +1966,22 @@ function getProjectEndMessage(end) {
 function getPreviewRange() {
   const activity = state.activities[Number($("plannerActivity")?.value)];
   if (!activity) return null;
+
   const recommendation = findYield(activity);
   if (!recommendation?.yield) return null;
+
   const entered = getInputDurationDays();
   const estimated = estimateDuration(activity, recommendation);
   const duration = Math.max(1, Math.ceil(entered > 0 ? entered : estimated));
-  const start = calculateStartDate();
-  const end = addWorkDays(start, duration - 1);
+  const schedule = { workSundays: getSelectedActivityWorkSundays() };
+  const helper = window.OrbePlannerManualHelpers;
+  const links = helper?.getDependencyLinks?.() || [];
+  const start = helper?.v5CalculateStartForDependencies
+    ? helper.v5CalculateStartForDependencies(duration, links, schedule)
+    : nextWorkingDayForActivity(state.currentProject?.start || CONFIG.projectStart, schedule);
+  const end = addWorkDaysForActivity(start, duration - 1, schedule);
   return { start, end };
 }
-
 
 
 /* =========================================================
@@ -2091,6 +2047,11 @@ function planToPayload(
     TURNO:
       planned.shift ||
       "Diurno",
+
+    DOMINGOS_TRABAJO:
+      JSON.stringify(
+        normalizeWorkSundays(planned.workSundays || [])
+      ),
 
     DEPENDENCIA:
       planned.dependencyId ||
@@ -2480,38 +2441,9 @@ async function removePlannerActivity(
 
 
 function recalculateAllDates() {
-  const activities = state.plannedActivities || [];
-  const byId = new Map(activities.map(a => [String(a.id), a]));
-  const done = new Set();
-  let guard = 0;
-
-  function visit(activity) {
-    const id = String(activity.id);
-    if (done.has(id)) return;
-    if (guard++ > activities.length * 3) return;
-
-    let start = nextWorkingDay(
-      state.currentProject?.start || CONFIG.projectStart
-    );
-
-    if (activity.dependencyId) {
-      const dependency = byId.get(String(activity.dependencyId));
-      if (dependency) {
-        visit(dependency);
-        start = addWorkDays(dependency.end, 1);
-      }
-    }
-
-    activity.start = start;
-    activity.end = addWorkDays(
-      start,
-      Math.max(1, Number(activity.duration) || 1) - 1
-    );
-    done.add(id);
-  }
-
-  activities.forEach(visit);
+  recalculateActivityDates(state.plannedActivities || []);
 }
+
 
 /* =========================================================
    DEPENDENCIAS VISUALES
@@ -2647,7 +2579,7 @@ function renderGantt() {
   const totalDays =
     Math.max(
       1,
-      workingDaysBetween(minDate, maxDate)
+      daysBetween(minDate, maxDate)
     );
 
 
@@ -2688,9 +2620,7 @@ function renderGantt() {
       (_, index) => {
 
         const date =
-          unit === 1
-            ? addWorkDays(minDate, index)
-            : addWorkDays(minDate, index * 5);
+          addDays(minDate, index * unit);
 
 
         return `
@@ -2714,14 +2644,14 @@ function renderGantt() {
           const offset =
             Math.max(
               0,
-              workingDaysBetween(minDate, item.start) - 1
+              daysBetween(minDate, item.start) - 1
             );
 
 
           const span =
             Math.max(
               1,
-              workingDaysBetween(item.start, item.end)
+              daysBetween(item.start, item.end)
             );
 
 
@@ -4655,7 +4585,6 @@ function enterProject(
 
   state.currentProject =
     project;
-loadWorkingDaysForCurrentProject();
 
   CONFIG.projectStart =
     formatISODate(
@@ -4910,6 +4839,9 @@ function loadCurrentProjectPlans() {
 
         duration:
           item.duration,
+
+        workSundays:
+          normalizeWorkSundays(item.workSundays || []),
 
         dependencyId:
           item.dependencyId ||
@@ -6525,6 +6457,10 @@ function normalizePlan(raw) {
 
     dependencies,
 
+    workSundays: normalizeWorkSundays(
+      raw.DOMINGOS_TRABAJO ?? raw.workSundays ?? []
+    ),
+
     dependencyId,
 
     dependencyType,
@@ -6581,6 +6517,10 @@ function v5NormalizeExistingPlan(plan) {
   plan.dependencyType =
     deps[0]?.type ||
     "FS";
+
+  plan.workSundays = normalizeWorkSundays(
+    plan.workSundays || []
+  );
 
   plan.dependencyName =
     deps
@@ -6664,6 +6604,9 @@ function setDependencyPickerLinks(
   select.value = "";
 
   renderDependencyRules();
+  if (typeof renderActivityWeeklySchedule === "function") {
+    renderActivityWeeklySchedule();
+  }
 }
 
 
@@ -7280,85 +7223,41 @@ function v5MaxDate(
 function v5CandidateStart(
   dependency,
   type,
-  duration
+  duration,
+  successor = {}
 ) {
-
-  if (!dependency) {
-    return null;
-  }
-
-  const t =
-    String(
-      type || "FS"
-    ).toUpperCase();
-
-  if (
-    t === "SS"
-  ) {
-    return nextWorkingDay(
-      dependency.start
-    );
-  }
-
-  if (
-    t === "FF"
-  ) {
-    return subtractWorkDays(
-      dependency.end,
-      Math.max(
-        1,
-        Number(duration) || 1
-      ) - 1
-    );
-  }
-
-  return addWorkDays(
-    dependency.end,
-    1
+  return getActivityCandidateStart(
+    dependency,
+    type,
+    duration,
+    successor
   );
 }
 
 
 function v5CalculateStartForDependencies(
   duration,
-  links
+  links,
+  workSchedule = {}
 ) {
-
-  let start =
-    nextWorkingDay(
-      state.currentProject?.start ||
-      CONFIG.projectStart
-    );
-
-  const deps =
-    v5NormalizeDependencies(
-      links
-    );
-
-  deps.forEach(
-    link => {
-
-      const dependency =
-        state.plannedActivities.find(
-          item =>
-            String(item.id) ===
-            String(link.id)
-        );
-
-      const candidate =
-        v5CandidateStart(
-          dependency,
-          link.type,
-          duration
-        );
-
-      start =
-        v5MaxDate(
-          start,
-          candidate
-        );
-    }
+  let start = nextWorkingDayForActivity(
+    state.currentProject?.start || CONFIG.projectStart,
+    workSchedule
   );
+
+  const deps = v5NormalizeDependencies(links);
+
+  deps.forEach(link => {
+    const dependency = state.plannedActivities.find(
+      item => String(item.id) === String(link.id)
+    );
+
+    const candidate = v5CandidateStart(
+      dependency, link.type, duration, workSchedule
+    );
+
+    start = v5MaxDate(start, candidate);
+  });
 
   return start;
 }
@@ -7447,6 +7346,11 @@ function planToPayload(
     TURNO:
       planned.shift ||
       "Diurno",
+
+    DOMINGOS_TRABAJO:
+      JSON.stringify(
+        normalizeWorkSundays(planned.workSundays || [])
+      ),
 
     DEPENDENCIA:
       v5EncodeDependencies(
@@ -7582,114 +7486,9 @@ async function savePlan(
 ========================================================= */
 
 function recalculateAllDates() {
-
-  const activities =
-    state.plannedActivities ||
-    [];
-
-  const byId =
-    new Map(
-      activities.map(
-        a => [
-          String(a.id),
-          a
-        ]
-      )
-    );
-
-  const done =
-    new Set();
-
-  const visiting =
-    new Set();
-
-  function visit(
-    activity
-  ) {
-
-    const id =
-      String(activity.id);
-
-    if (
-      done.has(id)
-    ) {
-      return;
-    }
-
-    if (
-      visiting.has(id)
-    ) {
-      return;
-    }
-
-    visiting.add(id);
-
-    const duration =
-      Math.max(
-        1,
-        Number(activity.duration) ||
-        1
-      );
-
-    let start =
-      nextWorkingDay(
-        state.currentProject?.start ||
-        CONFIG.projectStart
-      );
-
-    const deps =
-      v5GetDependencies(
-        activity
-      );
-
-    deps.forEach(
-      link => {
-
-        const dependency =
-          byId.get(
-            String(link.id)
-          );
-
-        if (!dependency) {
-          return;
-        }
-
-        visit(
-          dependency
-        );
-
-        const candidate =
-          v5CandidateStart(
-            dependency,
-            link.type,
-            duration
-          );
-
-        start =
-          v5MaxDate(
-            start,
-            candidate
-          );
-      }
-    );
-
-    activity.start =
-      start;
-
-    activity.end =
-      addWorkDays(
-        start,
-        duration - 1
-      );
-
-    visiting.delete(id);
-    done.add(id);
-  }
-
-  activities.forEach(
-    visit
-  );
+  recalculateActivityDates(state.plannedActivities || []);
 }
+
 
 
 /* =========================================================
@@ -7826,6 +7625,10 @@ function beginEditPlannerActivity(
       cancelEditPlannerActivity
     );
   }
+
+  renderActivityWeeklySchedule(
+    item.workSundays || []
+  );
 
   document
     .querySelector(
@@ -8017,6 +7820,10 @@ setDependencyPickerLinks(
   renderActivityInfo();
 
   calculatePlannerRequirement();
+  state.formWorkSundays = [];
+  if (typeof renderActivityWeeklySchedule === "function") {
+    renderActivityWeeklySchedule();
+  }
 }
 
 
@@ -8123,6 +7930,11 @@ async function addPlannerActivityFinalCore() {
   const links =
     getDependencyLinks();
 
+  const workSundays =
+    getSelectedActivityWorkSundays();
+
+  const workSchedule = { workSundays };
+
   if (editing) {
 
     for (
@@ -8151,13 +7963,15 @@ async function addPlannerActivityFinalCore() {
   const start =
     v5CalculateStartForDependencies(
       duration,
-      links
+      links,
+      workSchedule
     );
 
   const end =
-    addWorkDays(
+    addWorkDaysForActivity(
       start,
-      duration - 1
+      duration - 1,
+      workSchedule
     );
 
   const excludeId =
@@ -8222,6 +8036,9 @@ async function addPlannerActivityFinalCore() {
 
     item.duration =
       duration;
+
+    item.workSundays =
+      workSundays;
 
     item.start =
       start;
@@ -8370,6 +8187,8 @@ async function addPlannerActivityFinalCore() {
 
     duration,
 
+    workSundays,
+
     dependencies:
       links,
 
@@ -8435,15 +8254,7 @@ async function addPlannerActivityFinalCore() {
 
 
 async function addPlannerActivityFinal() {
-  state._askCalendarDates = true;
-
-  try {
-    return await addPlannerActivityFinalCore();
-  } finally {
-    state._askCalendarDates = false;
-    syncWorkingDaysDropdown();
-    renderCalendarExceptions();
-  }
+  return addPlannerActivityFinalCore();
 }
 
 /* =========================================================
@@ -9141,6 +8952,9 @@ function selectPlannerCatalogActivity(index) {
   closePlannerActivityDropdown();
 
   onActivitySelected();
+  if (typeof renderActivityWeeklySchedule === "function") {
+    renderActivityWeeklySchedule();
+  }
 }
 
  
@@ -9188,13 +9002,18 @@ function addManualPlannerActivityFromInput() {
 
   const dependencyLinks = helpers.getDependencyLinks();
   const days = Math.max(1, Math.ceil(enteredDuration));
+  const workSundays = getSelectedActivityWorkSundays();
+  const workSchedule = { workSundays };
 
   const start = helpers.v5CalculateStartForDependencies(
     days,
-    dependencyLinks
+    dependencyLinks,
+    workSchedule
   );
 
-  const end = addWorkDays(start, days - 1);
+  const end = addWorkDaysForActivity(
+    start, days - 1, workSchedule
+  );
 
   if (state.currentProject && !validateProjectEnd(end)) {
     alert(getProjectEndMessage(end));
@@ -9222,6 +9041,7 @@ function addManualPlannerActivityFromInput() {
     start: start,
     end: end,
     duration: days,
+    workSundays,
     dependencyId: dependencyLinks[0]?.id || null,
     dependencyType: dependencyLinks[0]?.type || "FS",
     dependencies: dependencyLinks,
@@ -9372,8 +9192,7 @@ function addManualPlannerActivityFromInput() {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-state._askCalendarDates = true;
-      try {
+try {
         addManualPlannerActivityFromInput();
       } catch (error) {
         console.error(
@@ -9386,11 +9205,6 @@ state._askCalendarDates = true;
           (error?.message || error)
         );
       }
-finally {
-  state._askCalendarDates = false;
-  syncWorkingDaysDropdown();
-  renderCalendarExceptions();
-}
       return;
     }
 
@@ -9411,313 +9225,283 @@ finally {
 
 
 /* =========================================================
-   CALENDARIO LABORAL POR PROYECTO Y FECHA
+   CALENDARIO SEMANAL POR ACTIVIDAD
+   Lunes-sábado trabajan por defecto; cada domingo se activa
+   por separado para la actividad que se está planificando.
 ========================================================= */
 
-function workingDaysStorageKey() {
-  const projectId = state.currentProject?.id || "sin-proyecto";
-  return `planificador-excepciones-calendario:${projectId}`;
+function normalizeWorkSundays(value) {
+  let values = value;
+  if (typeof values === "string") {
+    const text = values.trim();
+    if (!text) return [];
+    try { values = JSON.parse(text); }
+    catch (_) { values = text.split(","); }
+  }
+  if (!Array.isArray(values)) return [];
+
+  return [...new Set(values.map(value => {
+    const date = formatISODate(value);
+    const parsed = parseDate(date);
+    return parsed && parsed.getDay() === 0 ? date : "";
+  }).filter(Boolean))].sort();
 }
 
-function getEasterSunday(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-
-  return new Date(year, month - 1, day);
+function getSelectedActivityWorkSundays() {
+  if (!Array.isArray(state.formWorkSundays)) state.formWorkSundays = [];
+  return normalizeWorkSundays(state.formWorkSundays);
 }
 
-function getElSalvadorHolidayLabel(value) {
+function isWorkingDayForActivity(value, activity) {
   const d = parseDate(value);
-  if (!d) return "";
-
-  const location = normalize(state.currentProject?.location || "");
-
-  // No aplicar automáticamente el calendario salvadoreño
-  // cuando la ubicación indique expresamente otro país.
-  const foreignProject = [
-    "guatemala",
-    "honduras",
-    "republica dominicana",
-    "santo domingo"
-  ].some(country => location.includes(country));
-
-  if (foreignProject) return "";
-
-  const fixedHolidays = {
-    "01-01": "Año Nuevo",
-    "05-01": "Día del Trabajo",
-    "05-10": "Día de la Madre",
-    "06-17": "Día del Padre",
-    "08-03": "Fiestas de agosto",
-    "08-05": "Fiestas de agosto",
-    "09-15": "Día de la Independencia",
-    "11-02": "Día de los Difuntos",
-    "12-25": "Navidad"
-  };
-
-  const key = formatISODate(d).slice(5);
-
-  if (fixedHolidays[key]) return fixedHolidays[key];
-
-  const easter = getEasterSunday(d.getFullYear());
-  const holyWeek = [
-    [-3, "Jueves Santo"],
-    [-2, "Viernes Santo"],
-    [-1, "Sábado Santo"]
-  ];
-
-  for (const [offset, label] of holyWeek) {
-    if (formatISODate(addDays(easter, offset)) === formatISODate(d)) {
-      return label;
-    }
-  }
-
-  return "";
-}
-
-function syncWorkingDaysDropdown() {
-  const summary = $("workingDaysSummary");
-  if (!summary) return;
-
-  const count = (state.calendarExceptions || []).length;
-
-  summary.textContent = count
-    ? `${count} ${count === 1 ? "excepción" : "excepciones"}`
-    : "Lunes a sábado";
-}
-
-function loadWorkingDaysForCurrentProject() {
-  state.workingDays = [1, 2, 3, 4, 5, 6];
-  state.calendarExceptions = [];
-
-  try {
-    const saved = JSON.parse(
-      localStorage.getItem(workingDaysStorageKey()) || "[]"
-    );
-
-    if (Array.isArray(saved)) {
-      state.calendarExceptions = saved.filter(item =>
-        item &&
-        /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
-        typeof item.working === "boolean"
-      );
-    }
-  } catch (error) {
-    console.warn("No se pudo cargar el calendario laboral.", error);
-  }
-
-  syncWorkingDaysDropdown();
-  renderCalendarExceptions();
-}
-
-function saveCalendarExceptions() {
-  try {
-    localStorage.setItem(
-      workingDaysStorageKey(),
-      JSON.stringify(state.calendarExceptions || [])
-    );
-
-    return true;
-  } catch (error) {
-    console.error("No se pudo guardar el calendario laboral.", error);
-    alert("No se pudieron guardar las fechas especiales.");
-    return false;
-  }
-}
-
-function renderCalendarExceptions() {
-  const list = $("calendarExceptionsList");
-  const count = $("calendarExceptionCount");
-
-  if (!list) return;
-
-  const exceptions = [...(state.calendarExceptions || [])].sort(
-    (a, b) => a.date.localeCompare(b.date)
+  if (!d) return false;
+  if (d.getDay() !== 0) return true;
+  const sundays = normalizeWorkSundays(
+    activity?.workSundays || activity?.DOMINGOS_TRABAJO || []
   );
+  return sundays.includes(formatISODate(d));
+}
 
-  if (count) {
-    count.textContent =
-      `${exceptions.length} ${exceptions.length === 1 ? "fecha" : "fechas"}`;
+function nextWorkingDayForActivity(value, activity) {
+  let d = parseDate(value);
+  if (!d) return null;
+  for (let guard = 0; guard < 3700; guard++) {
+    if (isWorkingDayForActivity(d, activity)) return d;
+    d = addDays(d, 1);
+  }
+  return null;
+}
+
+function addWorkDaysForActivity(value, amount, activity) {
+  let d = nextWorkingDayForActivity(value, activity);
+  if (!d) return null;
+  let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+  let guard = 0;
+  while (remaining > 0 && guard++ < 10000) {
+    d = addDays(d, 1);
+    if (isWorkingDayForActivity(d, activity)) remaining--;
+  }
+  return remaining === 0 ? d : null;
+}
+
+function subtractWorkDaysForActivity(value, amount, activity) {
+  let d = parseDate(value);
+  if (!d) return null;
+  let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+  let guard = 0;
+  while (remaining > 0 && guard++ < 10000) {
+    d = addDays(d, -1);
+    if (isWorkingDayForActivity(d, activity)) remaining--;
+  }
+  return remaining === 0 ? nextWorkingDayForActivity(d, activity) : null;
+}
+
+function getActivityWorkDependencies(activity) {
+  const source = Array.isArray(activity?.dependencies) && activity.dependencies.length
+    ? activity.dependencies
+    : activity?.dependencyId
+      ? [{ id: activity.dependencyId, type: activity.dependencyType || "FS" }]
+      : [];
+  return source.map(link => ({
+    id: String(link?.id || link?.dependencyId || "").trim(),
+    type: String(link?.type || "FS").trim().toUpperCase()
+  })).filter(link => link.id && ["FS", "SS", "FF"].includes(link.type));
+}
+
+function getActivityCandidateStart(dependency, type, duration, successor = {}) {
+  if (!dependency) return null;
+  const relation = String(type || "FS").toUpperCase();
+  const taskDuration = Math.max(1, Number(duration) || 1);
+
+  if (relation === "SS") {
+    return nextWorkingDayForActivity(dependency.start, successor);
+  }
+  if (relation === "FF") {
+    return subtractWorkDaysForActivity(
+      dependency.end, taskDuration - 1, successor
+    );
+  }
+  return nextWorkingDayForActivity(addDays(dependency.end, 1), successor);
+}
+
+function recalculateActivityDates(activities) {
+  const plans = Array.isArray(activities) ? activities : [];
+  const byId = new Map(plans.map(plan => [String(plan.id), plan]));
+  const done = new Set();
+  const visiting = new Set();
+
+  function visit(activity) {
+    const id = String(activity.id);
+    if (done.has(id) || visiting.has(id)) return;
+    visiting.add(id);
+
+    const duration = Math.max(1, Math.ceil(Number(activity.duration) || 1));
+    let start = nextWorkingDayForActivity(
+      state.currentProject?.start || CONFIG.projectStart, activity
+    );
+
+    for (const link of getActivityWorkDependencies(activity)) {
+      const dependency = byId.get(String(link.id));
+      if (!dependency) continue;
+      visit(dependency);
+      const candidate = getActivityCandidateStart(
+        dependency, link.type, duration, activity
+      );
+      if (candidate && (!start || candidate > start)) start = candidate;
+    }
+
+    activity.start = start;
+    activity.end = addWorkDaysForActivity(start, duration - 1, activity);
+    visiting.delete(id);
+    done.add(id);
   }
 
-  syncWorkingDaysDropdown();
+  plans.forEach(visit);
+}
 
-  if (!exceptions.length) {
-    list.innerHTML = `
-      <p class="calendar-exceptions-empty">
-        Todavía no hay fechas especiales.
-      </p>
-    `;
+function mondayOfWeek(value) {
+  const d = parseDate(value);
+  if (!d) return null;
+  return addDays(d, -((d.getDay() + 6) % 7));
+}
+
+function getActivityFormDurationDays() {
+  const entered = getInputDurationDays();
+  if (entered > 0) return Math.max(1, Math.ceil(entered));
+
+  const input = $("plannerActivityManual");
+  if (input?.value.trim() && input.dataset.activityMode !== "catalog") return 0;
+
+  const selected = $("plannerActivity")?.value;
+  if (selected === undefined || selected === null || selected === "") return 0;
+  const activity = state.activities[Number(selected)];
+  if (!activity || !state.selectedEmployees.length) return 0;
+  const recommendation = findYield(activity);
+  if (!recommendation?.yield) return 0;
+  const estimated = estimateDuration(activity, recommendation);
+  return estimated > 0 ? Math.max(1, Math.ceil(estimated)) : 0;
+}
+
+function renderActivityWeeklySchedule(preselectedSundays) {
+  const weeksContainer = $("plannerWeeklyScheduleWeeks");
+  const summary = $("plannerWeeklyScheduleSummary");
+  if (!weeksContainer) return;
+
+  if (preselectedSundays !== undefined) {
+    state.formWorkSundays = normalizeWorkSundays(preselectedSundays);
+  } else if (!Array.isArray(state.formWorkSundays)) {
+    state.formWorkSundays = [];
+  }
+
+  const selectedSundays = getSelectedActivityWorkSundays();
+  const duration = getActivityFormDurationDays();
+  if (!duration) {
+    weeksContainer.innerHTML = `<p class="activity-weekly-empty">Escribe una actividad e introduce su duración. Si eliges una actividad del catálogo, selecciona también el equipo para estimar las semanas.</p>`;
+    if (summary) summary.textContent = "";
     return;
   }
 
-  list.innerHTML = exceptions.map(item => {
-    const d = parseDate(item.date);
-    const dayName = d
-      ? d.toLocaleDateString("es-SV", { weekday: "long" })
-      : "";
+  const helper = window.OrbePlannerManualHelpers;
+  const links = helper?.getDependencyLinks?.() || [];
+  const schedule = { workSundays: selectedSundays };
+  const start = helper?.v5CalculateStartForDependencies
+    ? helper.v5CalculateStartForDependencies(duration, links, schedule)
+    : nextWorkingDayForActivity(state.currentProject?.start || CONFIG.projectStart, schedule);
+  const end = addWorkDaysForActivity(start, duration - 1, schedule);
 
-    return `
-      <div class="calendar-exception-item">
-        <div class="calendar-exception-info">
-          <strong>${escapeHTML(formatDate(item.date))}</strong>
-          <span>${escapeHTML(dayName)}</span>
-          <small>${escapeHTML(item.label || "Fecha especial")}</small>
-        </div>
+  if (!start || !end) {
+    weeksContainer.innerHTML = `<p class="activity-weekly-empty">No se pudo calcular el calendario. Revisa la fecha de inicio y las dependencias.</p>`;
+    if (summary) summary.textContent = "";
+    return;
+  }
 
-        <select data-calendar-working="${escapeHTML(item.date)}"
-          aria-label="Decisión para ${escapeHTML(formatDate(item.date))}">
-          <option value="true" ${item.working ? "selected" : ""}>
-            Se trabaja
-          </option>
-          <option value="false" ${!item.working ? "selected" : ""}>
-            No se trabaja
-          </option>
-        </select>
+  const firstMonday = mondayOfWeek(start);
+  const lastMonday = mondayOfWeek(end);
+  const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
+  const rows = [];
+  let weekIndex = 0;
 
-        <button
-          type="button"
-          class="outline-btn"
-          data-calendar-remove="${escapeHTML(item.date)}"
-        >Eliminar</button>
-      </div>
-    `;
-  }).join("");
-}
+  for (let monday = firstMonday; monday <= lastMonday; monday = addDays(monday, 7)) {
+    weekIndex++;
+    const sunday = addDays(monday, 6);
+    let dayButtons = "";
 
-function refreshCalendarPlanning() {
-  if (!state.plannedActivities?.length) return;
+    for (let index = 0; index < 7; index++) {
+      const date = addDays(monday, index);
+      const iso = formatISODate(date);
+      const inRange = date >= start && date <= end;
+      const outsideClass = inRange ? "" : " is-outside";
+      const dayNumber = date.getDate();
+      const dateLabel = formatDate(date);
 
-  recalculateAllDates();
-  populateDependencies();
-  renderAllPlannerViews();
-}
-
-function initWorkingDaysDropdown() {
-  const container = $("workingDaysDropdown");
-  const addButton = $("addCalendarException");
-  const list = $("calendarExceptionsList");
-
-  if (!container || container.dataset.initialized) return;
-
-  container.dataset.initialized = "true";
-
-  loadWorkingDaysForCurrentProject();
-
-  addButton?.addEventListener("click", () => {
-    if (!state.currentProject?.id) {
-      alert("Primero selecciona o crea un proyecto.");
-      return;
-    }
-
-    const date = $("calendarExceptionDate")?.value || "";
-    const type = $("calendarExceptionType")?.value || "off";
-    const label = $("calendarExceptionLabel")?.value.trim() || "";
-
-    if (!date || !parseDate(date) || formatISODate(date) !== date) {
-      alert("Selecciona una fecha válida.");
-      return;
-    }
-
-    const selectedDate = parseDate(date);
-    const projectStart = parseDate(state.currentProject.start);
-    const projectEnd = parseDate(state.currentProject.end);
-
-    if (
-      (projectStart && selectedDate < projectStart) ||
-      (projectEnd && selectedDate > projectEnd)
-    ) {
-      alert("La fecha debe estar dentro del plazo del proyecto.");
-      return;
-    }
-
-    const previous = state.calendarExceptions || [];
-
-    state.calendarExceptions = [
-      ...previous.filter(item => item.date !== date),
-      {
-        date,
-        working: type === "work",
-        label: label || (
-          type === "work"
-            ? "Jornada extraordinaria"
-            : "Día no laborable"
-        )
+      if (date.getDay() === 0) {
+        const selected = selectedSundays.includes(iso);
+        dayButtons += `
+          <button type="button"
+            class="activity-week-day sunday${outsideClass}${selected ? " is-selected" : ""}"
+            data-work-sunday="${iso}"
+            aria-pressed="${selected ? "true" : "false"}"
+            aria-label="${selected ? "Se trabaja" : "No se trabaja"} el domingo ${escapeHTML(dateLabel)}"
+            title="${escapeHTML(dateLabel)} · ${selected ? "Se trabaja" : "Activar trabajo este domingo"}"
+            ${!inRange ? "disabled" : ""}>
+            <span>D</span><small>${dayNumber}</small>
+          </button>`;
+      } else {
+        dayButtons += `
+          <span class="activity-week-day${outsideClass}"
+            title="${escapeHTML(dateLabel)} · Laborable por defecto">
+            <span>${dayLabels[index]}</span><small>${dayNumber}</small>
+          </span>`;
       }
-    ];
-
-    if (!saveCalendarExceptions()) {
-      state.calendarExceptions = previous;
-      renderCalendarExceptions();
-      return;
     }
 
-    renderCalendarExceptions();
-    refreshCalendarPlanning();
+    rows.push(`
+      <div class="activity-week-row">
+        <div class="activity-week-label">
+          <strong>Semana ${weekIndex}</strong>
+          <span>${escapeHTML(formatDateShort(monday))}–${escapeHTML(formatDateShort(sunday))}</span>
+        </div>
+        <div class="activity-week-days">${dayButtons}</div>
+      </div>`);
+  }
 
-    $("calendarExceptionDate").value = "";
-    $("calendarExceptionLabel").value = "";
-  });
-
-  list?.addEventListener("change", event => {
-    const target = event.target;
-
-    if (!(target instanceof HTMLSelectElement)) return;
-    if (!target.dataset.calendarWorking) return;
-
-    const date = target.dataset.calendarWorking;
-    const previous = state.calendarExceptions || [];
-    const item = previous.find(entry => entry.date === date);
-
-    if (!item) return;
-
-    item.working = target.value === "true";
-
-    if (!saveCalendarExceptions()) {
-      item.working = !item.working;
-      renderCalendarExceptions();
-      return;
-    }
-
-    renderCalendarExceptions();
-    refreshCalendarPlanning();
-  });
-
-  list?.addEventListener("click", event => {
-    const target = event.target instanceof Element
-      ? event.target.closest("[data-calendar-remove]")
-      : null;
-
-    if (!target) return;
-
-    const date = target.dataset.calendarRemove;
-    const previous = state.calendarExceptions || [];
-
-    state.calendarExceptions = previous.filter(
-      item => item.date !== date
-    );
-
-    if (!saveCalendarExceptions()) {
-      state.calendarExceptions = previous;
-      renderCalendarExceptions();
-      return;
-    }
-
-    renderCalendarExceptions();
-    refreshCalendarPlanning();
-  });
+  weeksContainer.innerHTML = rows.join("");
+  const sundayCount = selectedSundays.filter(date => date >= formatISODate(start) && date <= formatISODate(end)).length;
+  if (summary) {
+    summary.textContent = `${duration} días laborables · ${formatDate(start)}–${formatDate(end)} · ${sundayCount} ${sundayCount === 1 ? "domingo activado" : "domingos activados"}. Una semana equivale a 6 días laborales (lunes a sábado); los domingos solo cuentan cuando los activas.`;
+  }
 }
 
-initWorkingDaysDropdown();
+function initActivityWeeklyCalendar() {
+  const panel = $("plannerWeeklyScheduleWeeks");
+  if (!panel || panel.dataset.initialized === "true") return;
+  panel.dataset.initialized = "true";
+  state.formWorkSundays = [];
+  const refresh = () => renderActivityWeeklySchedule();
+
+  $("plannerDuration")?.addEventListener("input", refresh);
+  $("plannerDuration")?.addEventListener("change", refresh);
+  $("plannerDurationUnit")?.addEventListener("change", refresh);
+  $("plannerActivity")?.addEventListener("change", refresh);
+  $("plannerActivityManual")?.addEventListener("input", refresh);
+  $("plannerShift")?.addEventListener("change", refresh);
+  $("plannerEmployees")?.addEventListener("change", refresh);
+  $("plannerDependencyRules")?.addEventListener("click", refresh);
+
+  panel.addEventListener("click", event => {
+    const target = event.target instanceof Element
+      ? event.target.closest("[data-work-sunday]")
+      : null;
+    if (!target || target.disabled) return;
+    const date = target.dataset.workSunday;
+    const selected = new Set(getSelectedActivityWorkSundays());
+    if (selected.has(date)) selected.delete(date);
+    else selected.add(date);
+    state.formWorkSundays = normalizeWorkSundays([...selected]);
+    renderActivityWeeklySchedule();
+  });
+
+  renderActivityWeeklySchedule();
+}
+
+initActivityWeeklyCalendar();
