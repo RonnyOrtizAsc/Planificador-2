@@ -3420,3 +3420,140 @@ body.mobile-menu-open{
     box-shadow: none;
   }
 }
+
+/* =========================================================
+   CALENDARIO SEMANAL POR ACTIVIDAD
+========================================================= */
+.activity-weekly-calendar {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fafbf9;
+  min-width: 0;
+}
+.activity-weekly-calendar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.activity-weekly-calendar-head h3 {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.activity-weekly-calendar-head p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.activity-weekly-calendar-tag {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border: 1px solid #e0e8c9;
+  border-radius: 999px;
+  background: #f1f4eb;
+  color: #56651f;
+  font-size: 9px;
+  font-weight: 800;
+}
+.activity-weekly-weeks {
+  display: grid;
+  gap: 9px;
+}
+.activity-weekly-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fff;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.activity-week-row {
+  display: grid;
+  grid-template-columns: minmax(135px, .7fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+.activity-week-label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.activity-week-label strong { color: var(--ink); font-size: 10px; }
+.activity-week-label span { color: var(--muted); font-size: 9px; }
+.activity-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  min-width: 0;
+}
+.activity-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 4px 2px;
+  border: 1px solid #e0e8c9;
+  border-radius: 7px;
+  background: #f1f4eb;
+  color: #56651f;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.activity-week-day small { color: inherit; font-size: 9px; font-weight: 600; }
+button.activity-week-day {
+  font: inherit;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+button.activity-week-day.sunday {
+  border-color: #dfe3df;
+  background: #f5f6f4;
+  color: #858c87;
+}
+button.activity-week-day.sunday:hover:not(:disabled) {
+  border-color: #9cc51f;
+  transform: translateY(-1px);
+}
+button.activity-week-day.sunday[aria-pressed="true"] {
+  border-color: #9cc51f;
+  background: var(--lime);
+  color: #10130b;
+  box-shadow: 0 0 0 2px rgba(200, 240, 74, .16);
+}
+.activity-week-day.is-outside {
+  opacity: .35;
+  background: #f8f9f7;
+  border-color: #eceeeb;
+  color: #9ba19d;
+}
+button.activity-week-day:disabled { cursor: default; opacity: .3; }
+.activity-weekly-summary {
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .activity-weekly-calendar { padding: 12px; }
+  .activity-weekly-calendar-head { flex-direction: column; gap: 8px; }
+  .activity-week-row { grid-template-columns: 1fr; gap: 8px; }
+  .activity-week-days { gap: 4px; }
+  .activity-week-day { min-height: 39px; }
+}
